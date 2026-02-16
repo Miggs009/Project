@@ -326,10 +326,17 @@ colorButtons.addEventListener("click", e=>{
 });
 
 // Dark Mode
-document.getElementById("themeToggle").addEventListener("click",()=>{
-  if(document.documentElement.classList.contains("dark")){
-    document.documentElement.classList.remove("dark"); localStorage.theme="light";
-  } else { document.documentElement.classList.add("dark"); localStorage.theme="dark"; }
+document.getElementById("themeToggle").addEventListener("click", () => {
+
+    const isDark = document.documentElement.classList.toggle("dark");
+
+    localStorage.theme = isDark ? "dark" : "light";
+
+    // Update Three.js background dynamically
+    scene.background = isDark
+        ? new THREE.Color(0x1f2937)
+        : new THREE.Color(0xf3f4f6);
+
 });
 
 // Fullscreen
