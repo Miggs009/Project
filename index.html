@@ -173,6 +173,10 @@
 const materialRates = { pla:3, abs:3.5, resin:7 };
 const USD_TO_PHP = 56.0;
 
+const PRINT_SPEED_MM3_PER_HOUR = 5000; // realistic
+const PRINT_COST_PER_HOUR = 20; // PHP
+const BASE_FEE = 10; // PHP minimum
+
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
 const materialSelect = document.getElementById("materialSelect");
@@ -191,7 +195,8 @@ let lastWeight = 0;
 let currentMesh = null;
 let priceChart;
 
-// THREE.js scene
+/* ---------------- THREE.JS ---------------- */
+
 const scene = new THREE.Scene();
 
 function updateSceneBackground() {
@@ -200,196 +205,186 @@ function updateSceneBackground() {
         : new THREE.Color(0xf3f4f6);
 }
 updateSceneBackground();
-new MutationObserver(updateSceneBackground).observe(document.documentElement, { attributes: true });
+new MutationObserver(updateSceneBackground)
+    .observe(document.documentElement,{attributes:true});
 
 const camera = new THREE.PerspectiveCamera(75,1,0.1,10000);
 camera.position.set(0,0,150);
 
 const viewer = document.getElementById("viewer");
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(viewer.clientWidth, viewer.clientHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(viewer.clientWidth,viewer.clientHeight);
+renderer.shadowMap.enabled=true;
 viewer.appendChild(renderer.domElement);
 
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
+const controls = new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
 
-// Lights
-const directionalLight1 = new THREE.DirectionalLight(0xffffff,1.2);
-directionalLight1.position.set(100,100,100); directionalLight1.castShadow=true; scene.add(directionalLight1);
-const directionalLight2 = new THREE.DirectionalLight(0xffffff,0.6);
-directionalLight2.position.set(-100,-50,50); directionalLight2.castShadow=true; scene.add(directionalLight2);
 scene.add(new THREE.AmbientLight(0xffffff,0.4));
 
-// Shadow plane
-const plane = new THREE.Mesh(
-  new THREE.PlaneGeometry(500,500),
-  new THREE.ShadowMaterial({opacity:0.2})
-);
-plane.rotation.x = -Math.PI/2;
-plane.position.y=-1;
-plane.receiveShadow=true;
-scene.add(plane);
+const light1=new THREE.DirectionalLight(0xffffff,1.2);
+light1.position.set(100,100,100);
+scene.add(light1);
 
-// Resize
 function resizeRenderer(){
-    const width = viewer.clientWidth;
-    const height = viewer.clientHeight;
-    renderer.setSize(width,height);
-    camera.aspect=width/height;
+    const w=viewer.clientWidth;
+    const h=viewer.clientHeight;
+    renderer.setSize(w,h);
+    camera.aspect=w/h;
     camera.updateProjectionMatrix();
 }
 window.addEventListener("resize",resizeRenderer);
 resizeRenderer();
 
-// Animate
-function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene,camera); }
+function animate(){
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene,camera);
+}
 animate();
 
-// Create mesh
-function createMesh(geometry){
-  const mesh = new THREE.Mesh(
-    geometry,
-    new THREE.MeshStandardMaterial({color:0x2563eb, metalness:0.3, roughness:0.4})
-  );
-  mesh.castShadow=false;
-  mesh.receiveShadow=false;
-  return mesh;
-}
+/* ------------- VOLUME CALCULATION ------------- */
 
-// Volume calculation
 function calculateVolume(geometry){
-  const pos=geometry.attributes.position;
-  let total=0;
-  for(let i=0;i<pos.count;i+=3){
-    const p1=new THREE.Vector3().fromBufferAttribute(pos,i);
-    const p2=new THREE.Vector3().fromBufferAttribute(pos,i+1);
-    const p3=new THREE.Vector3().fromBufferAttribute(pos,i+2);
-    total+=p1.dot(p2.cross(p3))/6.0;
-  }
-  return Math.abs(total);
+    const pos=geometry.attributes.position;
+    let total=0;
+    for(let i=0;i<pos.count;i+=3){
+        const p1=new THREE.Vector3().fromBufferAttribute(pos,i);
+        const p2=new THREE.Vector3().fromBufferAttribute(pos,i+1);
+        const p3=new THREE.Vector3().fromBufferAttribute(pos,i+2);
+        total+=p1.dot(p2.cross(p3))/6.0;
+    }
+    return Math.abs(total);
 }
 
-// Compute price, weight, print time
+/* ------------- PRICE CALCULATION ------------- */
+
 function computePrice(volume){
-  const material = materialSelect.value;
-  const currency = currencySelect.value;
-  const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
 
-  const materialDensity = {pla:1.24, abs:1.04, resin:1.1};
-  const volume_cm3 = volume/1000; // mm³ to cm³
-  const weight_g = volume_cm3 * materialDensity[material] * infill; 
-  lastWeight = weight_g;
+    const material = materialSelect.value;
+    const currency = currencySelect.value;
+    const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
 
-  // Estimate print time: 50 mm³ per hr
-  const printTime = (volume*infill)/50; 
-  printTimeSpan.innerText = printTime.toFixed(2);
+    const materialDensity = {pla:1.24, abs:1.04, resin:1.1};
 
-  // Cost calculation
-  const materialCost = weight_g * materialRates[material];
-  const printTimeCostPerHour = 20; // PHP per hour, adjustable
-  const printCost = printTime * printTimeCostPerHour;
+    const volume_cm3 = volume/1000;
+    const weight_g = volume_cm3 * materialDensity[material] * infill;
+    lastWeight = weight_g;
+    weightSpan.innerText = weight_g.toFixed(2);
 
-  let totalCost = materialCost + printCost;
+    const printTime = (volume * infill) / PRINT_SPEED_MM3_PER_HOUR;
+    printTimeSpan.innerText = printTime.toFixed(2);
 
-  if(currency==="USD"){
-    return "$ "+(totalCost/USD_TO_PHP).toFixed(2);
-  }
-  return "₱ "+totalCost.toFixed(2);
+    const materialCost = weight_g * materialRates[material];
+    const printCost = printTime * PRINT_COST_PER_HOUR;
+
+    let total = materialCost + printCost + BASE_FEE;
+
+    if(currency==="USD"){
+        return "$ " + (total/USD_TO_PHP).toFixed(2);
+    }
+    return "₱ " + total.toFixed(2);
 }
 
-// Compute price for chart (PHP)
+/* ------------- CHART PRICE ------------- */
+
 function computePricePHP(volume,infillPercent){
-  const material = materialSelect.value;
-  const materialDensity={pla:1.24, abs:1.04, resin:1.1};
-  const vol_cm3=volume/1000;
-  return vol_cm3*materialDensity[material]*(infillPercent/100)*materialRates[material];
+
+    const material = materialSelect.value;
+    const materialDensity={pla:1.24, abs:1.04, resin:1.1};
+
+    const infill=infillPercent/100;
+    const volume_cm3=volume/1000;
+    const weight=volume_cm3*materialDensity[material]*infill;
+    const printTime=(volume*infill)/PRINT_SPEED_MM3_PER_HOUR;
+
+    const materialCost=weight*materialRates[material];
+    const printCost=printTime*PRINT_COST_PER_HOUR;
+
+    return materialCost+printCost+BASE_FEE;
 }
 
-// Update chart
 function updatePriceChart(){
-  if(!lastVolume) return;
-  const labels=[]; const data=[];
-  for(let i=0;i<=100;i+=5){
-    labels.push(i+"%");
-    data.push(computePricePHP(lastVolume,i));
-  }
-  if(priceChart){
-    priceChart.data.labels=labels;
-    priceChart.data.datasets[0].data=data;
-    priceChart.update();
-  } else {
-    priceChart = new Chart(document.getElementById("priceChart"),{
-      type:'line',
-      data:{labels:labels,datasets:[{
-        label:'Price (₱)',
-        data:data,
-        borderColor:'#2563eb',
-        backgroundColor:'rgba(37,99,235,0.2)',
-        fill:true,
-        tension:0.3
-      }]},
-      options:{
-        responsive:true,
-        plugins:{legend:{labels:{color:document.documentElement.classList.contains("dark")?"#fff":"#000"}}},
-        scales:{
-          x:{ticks:{color:document.documentElement.classList.contains("dark")?"#fff":"#000"}},
-          y:{ticks:{color:document.documentElement.classList.contains("dark")?"#fff":"#000"}}
-        }
-      }
-    });
-  }
+    if(!lastVolume) return;
+
+    const labels=[];
+    const data=[];
+
+    for(let i=0;i<=100;i+=5){
+        labels.push(i+"%");
+        data.push(computePricePHP(lastVolume,i));
+    }
+
+    if(priceChart){
+        priceChart.data.labels=labels;
+        priceChart.data.datasets[0].data=data;
+        priceChart.update();
+    }
 }
 
-// Handle STL file
+/* ------------- FILE HANDLING ------------- */
+
 function handleFile(file){
-  if(!file) return;
-  loadingText.classList.remove("hidden");
-  resultDiv.classList.add("hidden");
+    if(!file) return;
 
-  const reader=new FileReader();
-  reader.onload=function(event){
-    const loader=new THREE.STLLoader();
-    const geometry=loader.parse(event.target.result);
-    geometry.center();
+    loadingText.classList.remove("hidden");
+    resultDiv.classList.add("hidden");
 
-    const mesh=createMesh(geometry);
+    const reader=new FileReader();
+    reader.onload=function(event){
+        const loader=new THREE.STLLoader();
+        const geometry=loader.parse(event.target.result);
+        geometry.center();
 
-    if(currentMesh) scene.remove(currentMesh);
-    scene.add(mesh);
-    currentMesh=mesh;
+        const mesh=new THREE.Mesh(
+            geometry,
+            new THREE.MeshStandardMaterial({color:0x2563eb})
+        );
 
-    const box=new THREE.Box3().setFromObject(mesh);
-    const size=box.getSize(new THREE.Vector3()).length();
-    const center=box.getCenter(new THREE.Vector3());
+        if(currentMesh) scene.remove(currentMesh);
+        scene.add(mesh);
+        currentMesh=mesh;
 
-    camera.position.copy(center);
-    camera.position.x+=size; camera.position.y+=size; camera.position.z+=size;
-    camera.lookAt(center);
+        lastVolume=calculateVolume(geometry);
 
-    lastVolume=calculateVolume(geometry);
+        volumeSpan.innerText=lastVolume.toFixed(2);
+        priceSpan.innerText=computePrice(lastVolume);
+        updatePriceChart();
 
-    volumeSpan.innerText=lastVolume.toFixed(2);
-    priceSpan.innerText=computePrice(lastVolume);
-    updatePriceChart();
-
-    loadingText.classList.add("hidden");
-    resultDiv.classList.remove("hidden");
-  };
-  reader.readAsArrayBuffer(file);
+        loadingText.classList.add("hidden");
+        resultDiv.classList.remove("hidden");
+    };
+    reader.readAsArrayBuffer(file);
 }
 
-// Events
+/* ------------- EVENTS ------------- */
+
 dropZone.addEventListener("dragover",e=>e.preventDefault());
-dropZone.addEventListener("drop",e=>{ e.preventDefault(); handleFile(e.dataTransfer.files[0]); });
+dropZone.addEventListener("drop",e=>{
+    e.preventDefault();
+    handleFile(e.dataTransfer.files[0]);
+});
 fileInput.addEventListener("change",e=>handleFile(e.target.files[0]));
 
-materialSelect.addEventListener("change",()=>{ if(lastVolume) {priceSpan.innerText=computePrice(lastVolume); updatePriceChart();} });
-currencySelect.addEventListener("change",()=>{ if(lastVolume) priceSpan.innerText=computePrice(lastVolume); });
+materialSelect.addEventListener("change",()=>{
+    if(lastVolume){
+        priceSpan.innerText=computePrice(lastVolume);
+        updatePriceChart();
+    }
+});
+
+currencySelect.addEventListener("change",()=>{
+    if(lastVolume){
+        priceSpan.innerText=computePrice(lastVolume);
+    }
+});
+
 infillSlider.addEventListener("input",()=>{
-  infillValue.innerText=infillSlider.value+"%";
-  if(lastVolume) {priceSpan.innerText=computePrice(lastVolume); updatePriceChart();}
+    infillValue.innerText=infillSlider.value+"%";
+    if(lastVolume){
+        priceSpan.innerText=computePrice(lastVolume);
+        updatePriceChart();
+    }
 });
 
 // Dark mode
