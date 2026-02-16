@@ -82,8 +82,12 @@
           class="w-full p-3 border rounded-lg
                  bg-white dark:bg-gray-700
                  dark:text-white dark:border-gray-600">
-          <option value="pla">PLA</option>
-          <option value="abs">ABS</option>
+          <option value="pla">PLA (Polylactic Acid)</option>
+          <option value="abs">ABS (Acrylonitrile Butadiene Styrene)</option>
+          <option value="petg">PETG (Polyethylene Terepthalate)</option>
+          <option value="pett">PETT (T-Glase Filament)</option>
+          <option value="hips">HIPS (High Impact Polystyrene)</option>
+          <option value="tpu">TPU (Thermoplastic Polyurethane)</option>
           <option value="resin">Resin</option>
         </select>
       </div>
@@ -152,7 +156,7 @@
     <!-- RIGHT PANEL -->
     <div class="w-full lg:w-1/2 bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-2 sm:p-4 transition-colors duration-300">
       <div id="viewer"
-        class="w-full h-[300px] sm:h-[400px] lg:h-[500px] rounded-xl bg-gray-200 dark:bg-gray-700">
+        class="w-full min-h-[600px] rounded-xl bg-gray-200 dark:bg-gray-700">
       </div>
     </div>
 
@@ -170,7 +174,15 @@
 </div>
 
 <script>
-const materialRates = { pla:3, abs:3.5, resin:7 };
+const materialRates = { 
+    pla:3, 
+    abs:3.5, 
+    resin:7,
+    petg:4,
+    pett:4.5,
+    hips:3.8,
+    tpu:6
+ };
 const USD_TO_PHP = 56.0;
 
 const PRINT_SPEED_MM3_PER_HOUR = 5000; // realistic
@@ -265,7 +277,15 @@ function computePrice(volume){
     const currency = currencySelect.value;
     const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
 
-    const materialDensity = {pla:1.24, abs:1.04, resin:1.1};
+    const materialDensity = {
+        pla:1.24, 
+        abs:1.04, 
+        resin:1.1,
+        petg:1.27,
+        pett:1.23,
+        hips:1.03,
+        tpu:1.21
+    };
 
     const volume_cm3 = volume/1000;
     const weight_g = volume_cm3 * materialDensity[material] * infill;
