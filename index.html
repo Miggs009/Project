@@ -4,15 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>STL Price Calculator</title>
-<script>
-    if (
-        localStorage.theme === "dark" || (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme:dark)").matches)
-    ){
-        document.documentElement.classList.add("dark");
-    }else {
-        document.documentElement.classList.remove("dark");
-    }
-</script>
+
 <!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
 
@@ -21,6 +13,20 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // Load dark mode from localStorage or OS preference
+    if (
+        localStorage.theme === "dark" || 
+        (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme:dark)").matches)
+    ){
+        document.documentElement.classList.add("dark");
+    } else {
+        document.documentElement.classList.remove("dark");
+    }
+</script>
 </head>
 
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
@@ -82,15 +88,19 @@
         </select>
       </div>
 
-      <!-- Infill Percentage -->
+      <!-- Infill Slider -->
       <div class="mt-4">
         <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
           Infill Percentage
         </label>
-        <input type="number" id="infillInput" min="0" max="100" value="20"
-          class="w-full p-3 border rounded-lg
-                 bg-white dark:bg-gray-700
-                 dark:text-white dark:border-gray-600">
+        <input type="range" id="infillSlider" min="0" max="100" value="20"
+          class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer
+                 dark:bg-gray-600">
+        <div class="flex justify-between text-sm text-gray-600 dark:text-gray-300">
+          <span>0%</span>
+          <span id="infillValue">20%</span>
+          <span>100%</span>
+        </div>
       </div>
 
       <!-- Currency -->
@@ -132,6 +142,11 @@
         Calculating...
       </p>
 
+      <!-- Price Chart -->
+      <div class="mt-6">
+        <canvas id="priceChart" class="rounded-lg bg-white dark:bg-gray-800 p-2"></canvas>
+      </div>
+
     </div>
 
     <!-- RIGHT PANEL -->
@@ -157,25 +172,28 @@
 <script>
 const materialRates = { pla:3, abs:3.5, resin:7 };
 const USD_TO_PHP = 56.0;
+
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
 const materialSelect = document.getElementById("materialSelect");
 const currencySelect = document.getElementById("currencySelect");
-const infillInput = document.getElementById("infillInput");
+const infillSlider = document.getElementById("infillSlider");
+const infillValue = document.getElementById("infillValue");
 const volumeSpan = document.getElementById("volume");
 const weightSpan = document.getElementById("weight");
 const priceSpan = document.getElementById("price");
 const printTimeSpan = document.getElementById("printTime");
 const resultDiv = document.getElementById("result");
 const loadingText = document.getElementById("loading");
+
 let lastVolume = 0;
 let lastWeight = 0;
 let currentMesh = null;
+let priceChart;
 
-// THREE.js setup
+// THREE.js scene
 const scene = new THREE.Scene();
 
-// Set background based on dark mode
 function updateSceneBackground() {
     scene.background = document.documentElement.classList.contains("dark") 
         ? new THREE.Color(0x1f2937) 
@@ -184,154 +202,136 @@ function updateSceneBackground() {
 updateSceneBackground();
 new MutationObserver(updateSceneBackground).observe(document.documentElement, { attributes: true });
 
-// Camera
-const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 10000);
-camera.position.set(0, 0, 150);
+const camera = new THREE.PerspectiveCamera(75,1,0.1,10000);
+camera.position.set(0,0,150);
 
-// Renderer
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const viewer = document.getElementById("viewer");
+const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setSize(viewer.clientWidth, viewer.clientHeight);
-renderer.shadowMap.enabled = true; // Enable shadows
-renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 viewer.appendChild(renderer.domElement);
 
-// Controls
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-// LIGHTS
-const directionalLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
-directionalLight1.position.set(100, 100, 100);
-directionalLight1.castShadow = true;
-scene.add(directionalLight1);
+// Lights
+const directionalLight1 = new THREE.DirectionalLight(0xffffff,1.2);
+directionalLight1.position.set(100,100,100); directionalLight1.castShadow=true; scene.add(directionalLight1);
+const directionalLight2 = new THREE.DirectionalLight(0xffffff,0.6);
+directionalLight2.position.set(-100,-50,50); directionalLight2.castShadow=true; scene.add(directionalLight2);
+scene.add(new THREE.AmbientLight(0xffffff,0.4));
 
-const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
-directionalLight2.position.set(-100, -50, 50);
-directionalLight2.castShadow = true;
-scene.add(directionalLight2);
-
-// Ambient light
-scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-
-// Shadow plane under the mesh for better depth perception
+// Shadow plane
 const plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(500, 500),
-    new THREE.ShadowMaterial({ opacity: 0.2 })
+  new THREE.PlaneGeometry(500,500),
+  new THREE.ShadowMaterial({opacity:0.2})
 );
-plane.rotation.x = -Math.PI / 2;
-plane.position.y = -1;
-plane.receiveShadow = true;
+plane.rotation.x = -Math.PI/2;
+plane.position.y=-1;
+plane.receiveShadow=true;
 scene.add(plane);
 
-// Resize function
-function resizeRenderer() {
+// Resize
+function resizeRenderer(){
     const width = viewer.clientWidth;
     const height = viewer.clientHeight;
-    renderer.setSize(width, height);
-    camera.aspect = width / height;
+    renderer.setSize(width,height);
+    camera.aspect=width/height;
     camera.updateProjectionMatrix();
 }
-window.addEventListener("resize", resizeRenderer);
+window.addEventListener("resize",resizeRenderer);
 resizeRenderer();
 
-// Animate loop
-function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-}
+// Animate
+function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene,camera); }
 animate();
 
-/* CREATE MESH WHEN LOADING STL */
-function createMesh(geometry) {
-    const mesh = new THREE.Mesh(
-        geometry,
-        new THREE.MeshStandardMaterial({
-            color: 0x2563eb,
-            metalness: 0.3,
-            roughness: 0.4
-        })
-    );
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    return mesh;
+// Create mesh
+function createMesh(geometry){
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshStandardMaterial({color:0x2563eb, metalness:0.3, roughness:0.4})
+  );
+  mesh.castShadow=true;
+  mesh.receiveShadow=true;
+  return mesh;
 }
 
-/* FILE HANDLING: REPLACE MESH */
-function handleFile(file) {
-    if (!file) return;
-    loadingText.classList.remove("hidden");
-    resultDiv.classList.add("hidden");
-
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        const loader = new THREE.STLLoader();
-        const geometry = loader.parse(event.target.result);
-        geometry.center();
-
-        const mesh = createMesh(geometry);
-
-        if (currentMesh) scene.remove(currentMesh);
-        scene.add(mesh);
-        currentMesh = mesh;
-
-        const box = new THREE.Box3().setFromObject(mesh);
-        const size = box.getSize(new THREE.Vector3()).length();
-        const center = box.getCenter(new THREE.Vector3());
-
-        camera.position.copy(center);
-        camera.position.x += size;
-        camera.position.y += size;
-        camera.position.z += size;
-        camera.lookAt(center);
-
-        const volume = calculateVolume(geometry);
-        lastVolume = volume;
-
-        volumeSpan.innerText = volume.toFixed(2);
-        weightSpan.innerText = lastWeight.toFixed(2);
-        priceSpan.innerText = computePrice(volume);
-
-        loadingText.classList.add("hidden");
-        resultDiv.classList.remove("hidden");
-    };
-
-    reader.readAsArrayBuffer(file);
-}
-
-// Volume calc
+// Volume calculation
 function calculateVolume(geometry){
-  const position = geometry.attributes.position;
-  let totalVolume=0;
-  for(let i=0;i<position.count;i+=3){
-    const p1 = new THREE.Vector3().fromBufferAttribute(position,i);
-    const p2 = new THREE.Vector3().fromBufferAttribute(position,i+1);
-    const p3 = new THREE.Vector3().fromBufferAttribute(position,i+2);
-    totalVolume+=p1.dot(p2.cross(p3))/6.0;
+  const pos=geometry.attributes.position;
+  let total=0;
+  for(let i=0;i<pos.count;i+=3){
+    const p1=new THREE.Vector3().fromBufferAttribute(pos,i);
+    const p2=new THREE.Vector3().fromBufferAttribute(pos,i+1);
+    const p3=new THREE.Vector3().fromBufferAttribute(pos,i+2);
+    total+=p1.dot(p2.cross(p3))/6.0;
   }
-  return Math.abs(totalVolume);
+  return Math.abs(total);
 }
 
-// Compute price + weight + print time
+// Compute price, weight, print time
 function computePrice(volume){
   const material = materialSelect.value;
   const currency = currencySelect.value;
-  const infill = Math.min(Math.max(Number(infillInput.value),0),100)/100;
+  const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
 
-  const materialDensity = {pla:1.24, abs:1.04, resin:1.1};
-  const volume_cm3 = volume/1000; // mm³ to cm³
-  const weight_g = volume_cm3 * materialDensity[material] * infill; 
-  lastWeight = weight_g;
+  const materialDensity={pla:1.24, abs:1.04, resin:1.1};
+  const volume_cm3 = volume/1000;
+  const weight_g = volume_cm3*materialDensity[material]*infill;
+  lastWeight=weight_g;
+  weightSpan.innerText=weight_g.toFixed(2);
 
-  // Estimate print time: 50 mm³ per hr
-  const printTime = (volume*infill)/50; 
-  printTimeSpan.innerText = printTime.toFixed(2);
+  const printTime=(volume*infill)/50;
+  printTimeSpan.innerText=printTime.toFixed(2);
 
   let pricePHP = weight_g*materialRates[material];
-  if(currency==="USD"){
-    return "$ "+(pricePHP/USD_TO_PHP).toFixed(2);
-  }
+  if(currency==="USD") return "$ "+(pricePHP/USD_TO_PHP).toFixed(2);
   return "₱ "+pricePHP.toFixed(2);
+}
+
+// Compute price for chart (PHP)
+function computePricePHP(volume,infillPercent){
+  const material = materialSelect.value;
+  const materialDensity={pla:1.24, abs:1.04, resin:1.1};
+  const vol_cm3=volume/1000;
+  return vol_cm3*materialDensity[material]*(infillPercent/100)*materialRates[material];
+}
+
+// Update chart
+function updatePriceChart(){
+  if(!lastVolume) return;
+  const labels=[]; const data=[];
+  for(let i=0;i<=100;i+=5){
+    labels.push(i+"%");
+    data.push(computePricePHP(lastVolume,i));
+  }
+  if(priceChart){
+    priceChart.data.labels=labels;
+    priceChart.data.datasets[0].data=data;
+    priceChart.update();
+  } else {
+    priceChart = new Chart(document.getElementById("priceChart"),{
+      type:'line',
+      data:{labels:labels,datasets:[{
+        label:'Price (₱)',
+        data:data,
+        borderColor:'#2563eb',
+        backgroundColor:'rgba(37,99,235,0.2)',
+        fill:true,
+        tension:0.3
+      }]},
+      options:{
+        responsive:true,
+        plugins:{legend:{labels:{color:document.documentElement.classList.contains("dark")?"#fff":"#000"}}},
+        scales:{
+          x:{ticks:{color:document.documentElement.classList.contains("dark")?"#fff":"#000"}},
+          y:{ticks:{color:document.documentElement.classList.contains("dark")?"#fff":"#000"}}
+        }
+      }
+    });
+  }
 }
 
 // Handle STL file
@@ -339,34 +339,32 @@ function handleFile(file){
   if(!file) return;
   loadingText.classList.remove("hidden");
   resultDiv.classList.add("hidden");
-  const reader = new FileReader();
-  reader.onload = function(event){
-    const loader = new THREE.STLLoader();
-    const geometry = loader.parse(event.target.result);
+
+  const reader=new FileReader();
+  reader.onload=function(event){
+    const loader=new THREE.STLLoader();
+    const geometry=loader.parse(event.target.result);
     geometry.center();
 
-    const mesh = new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({
-      color:0x2563eb, metalness:0.3, roughness:0.4
-    }));
+    const mesh=createMesh(geometry);
 
     if(currentMesh) scene.remove(currentMesh);
     scene.add(mesh);
-    currentMesh = mesh;
+    currentMesh=mesh;
 
-    const box = new THREE.Box3().setFromObject(mesh);
-    const size = box.getSize(new THREE.Vector3()).length();
-    const center = box.getCenter(new THREE.Vector3());
+    const box=new THREE.Box3().setFromObject(mesh);
+    const size=box.getSize(new THREE.Vector3()).length();
+    const center=box.getCenter(new THREE.Vector3());
 
     camera.position.copy(center);
     camera.position.x+=size; camera.position.y+=size; camera.position.z+=size;
     camera.lookAt(center);
 
-    const volume = calculateVolume(geometry);
-    lastVolume = volume;
+    lastVolume=calculateVolume(geometry);
 
-    volumeSpan.innerText = volume.toFixed(2);
-    weightSpan.innerText = lastWeight.toFixed(2);
-    priceSpan.innerText = computePrice(volume);
+    volumeSpan.innerText=lastVolume.toFixed(2);
+    priceSpan.innerText=computePrice(lastVolume);
+    updatePriceChart();
 
     loadingText.classList.add("hidden");
     resultDiv.classList.remove("hidden");
@@ -379,25 +377,30 @@ dropZone.addEventListener("dragover",e=>e.preventDefault());
 dropZone.addEventListener("drop",e=>{ e.preventDefault(); handleFile(e.dataTransfer.files[0]); });
 fileInput.addEventListener("change",e=>handleFile(e.target.files[0]));
 
-materialSelect.addEventListener("change",()=>{ if(lastVolume) priceSpan.innerText = computePrice(lastVolume); });
-currencySelect.addEventListener("change",()=>{ if(lastVolume) priceSpan.innerText = computePrice(lastVolume); });
-infillInput.addEventListener("change",()=>{ if(lastVolume) priceSpan.innerText = computePrice(lastVolume); });
+materialSelect.addEventListener("change",()=>{ if(lastVolume) {priceSpan.innerText=computePrice(lastVolume); updatePriceChart();} });
+currencySelect.addEventListener("change",()=>{ if(lastVolume) priceSpan.innerText=computePrice(lastVolume); });
+infillSlider.addEventListener("input",()=>{
+  infillValue.innerText=infillSlider.value+"%";
+  if(lastVolume) {priceSpan.innerText=computePrice(lastVolume); updatePriceChart();}
+});
 
-// Dark mode toggle
-const themeToggle = document.getElementById("themeToggle");
+// Dark mode
+const themeToggle=document.getElementById("themeToggle");
 themeToggle.addEventListener("click",()=>{
   if(document.documentElement.classList.contains("dark")){
-    document.documentElement.classList.remove("dark"); localStorage.theme="light";
-  }else{
-    document.documentElement.classList.add("dark"); localStorage.theme="dark";
+    document.documentElement.classList.remove("dark");
+    localStorage.theme="light";
+  } else {
+    document.documentElement.classList.add("dark");
+    localStorage.theme="dark";
   }
 });
 
-// Fullscreen STL preview
-const fullscreenOverlay = document.getElementById("fullscreenOverlay");
-const fullscreenViewer = document.getElementById("fullscreenViewer");
-const fullscreenBtn = document.getElementById("fullscreenBtn");
-const closeFullscreen = document.getElementById("closeFullscreen");
+// Fullscreen
+const fullscreenOverlay=document.getElementById("fullscreenOverlay");
+const fullscreenViewer=document.getElementById("fullscreenViewer");
+const fullscreenBtn=document.getElementById("fullscreenBtn");
+const closeFullscreen=document.getElementById("closeFullscreen");
 
 let fsRenderer, fsScene, fsCamera, fsControls;
 
@@ -405,40 +408,52 @@ fullscreenBtn.addEventListener("click",()=>{
   if(!currentMesh) return;
   fullscreenOverlay.classList.remove("hidden");
 
-  // Setup fullscreen scene
-  fsScene = new THREE.Scene();
-  fsScene.background = scene.background.clone();
-  fsCamera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,10000);
+  fsScene=new THREE.Scene();
+  fsScene.background=scene.background.clone();
+  fsCamera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,10000);
   fsCamera.position.copy(camera.position);
-  fsControls = new THREE.OrbitControls(fsCamera,fullscreenViewer);
+
+  fsControls=new THREE.OrbitControls(fsCamera,fullscreenViewer);
   fsControls.enableDamping=true;
 
-  fsRenderer = new THREE.WebGLRenderer({antialias:true});
+  fsRenderer=new THREE.WebGLRenderer({antialias:true});
   fsRenderer.setSize(window.innerWidth,window.innerHeight);
+  fsRenderer.shadowMap.enabled=true;
+  fsRenderer.shadowMap.type=THREE.PCFSoftShadowMap;
   fullscreenViewer.appendChild(fsRenderer.domElement);
 
-  const meshClone = currentMesh.clone();
+  const meshClone=currentMesh.clone();
   fsScene.add(meshClone);
 
-  const light1 = new THREE.DirectionalLight(0xffffff,1);
-  light1.position.set(1,1,1); fsScene.add(light1);
-  fsScene.add(new THREE.AmbientLight(0xffffff,0.6));
+  const light1=new THREE.DirectionalLight(0xffffff,1);
+  light1.position.set(100,100,100);
+  light1.castShadow=true;
+  fsScene.add(light1);
+  fsScene.add(new THREE.AmbientLight(0xffffff,0.4));
+
+  const planeFS=new THREE.Mesh(
+    new THREE.PlaneGeometry(500,500),
+    new THREE.ShadowMaterial({opacity:0.2})
+  );
+  planeFS.rotation.x=-Math.PI/2;
+  planeFS.position.y=-1;
+  planeFS.receiveShadow=true;
+  fsScene.add(planeFS);
 
   function fsAnimate(){ requestAnimationFrame(fsAnimate); fsControls.update(); fsRenderer.render(fsScene,fsCamera); }
   fsAnimate();
 
-  window.addEventListener("resize",()=>{ 
-    fsCamera.aspect=window.innerWidth/window.innerHeight; 
-    fsCamera.updateProjectionMatrix(); 
-    fsRenderer.setSize(window.innerWidth,window.innerHeight); 
+  window.addEventListener("resize",()=>{
+    fsCamera.aspect=window.innerWidth/window.innerHeight;
+    fsCamera.updateProjectionMatrix();
+    fsRenderer.setSize(window.innerWidth,window.innerHeight);
   });
 });
 
 closeFullscreen.addEventListener("click",()=>{
   fullscreenOverlay.classList.add("hidden");
-  fullscreenViewer.innerHTML=""; // remove renderer
+  fullscreenViewer.innerHTML="";
 });
 </script>
-
 </body>
 </html>
