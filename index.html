@@ -189,58 +189,67 @@ function calculateVolume(geometry){
 }
 
 /* ----------- SUCCESS RATE ------------- */
-function computeSuccessRate(volume, material, infill) {
+function computeAdvancedSuccessRate(geometry, material, infillPercent){
+    let success = 0.98;
 
-    let success = 0.95;
+    const volume = calculateVolume(geometry);
+    if(volume > 500000) success -= 0.05;
+    if(volume > 1000000) success -= 0.05;
+    if(material === "resin" || material === "tpu") success -= 0.05;
+    if(infillPercent < 10 || infillPercent > 80) success -= 0.03;
 
-    // Volume scaling (bigger = gradually lower success)
-    let volumePenalty = Math.min(volume / 2000000, 0.08); 
-    success -= volumePenalty;
+    geometry.computeBoundingBox();
+    const bbox = geometry.boundingBox;
+    const xSize = bbox.max.x - bbox.min.x;
+    const ySize = bbox.max.y - bbox.min.y;
+    const zSize = bbox.max.z - bbox.min.z;
+    const minDimension = Math.min(xSize, ySize, zSize);
+    const aspectRatio = Math.max(xSize, ySize, zSize)/minDimension;
+    if(minDimension<5) success-=0.05;
+    if(aspectRatio>5) success-=0.03;
 
-    // Material difficulty
-    const materialPenalty = {
-        PLA: 0,
-        PETG: 0.02,
-        ABS: 0.05,
-        TPU: 0.06,
-        ASA: 0.05
-    };
+    let downFacing = 0;
+    const pos = geometry.attributes.position;
+    const normal = geometry.attributes.normal;
+    if(normal){
+        for(let i=0;i<pos.count;i+=3){
+            const nz = normal.getZ(i);
+            if(nz<0) downFacing++;
+        }
+        const downRatio = downFacing/(pos.count/3);
+        if(downRatio>0.2) success -=0.05;
+    }
 
-    success -= materialPenalty[material] || 0;
-
-    // Infill scaling (far from 20% ideal reduces success)
-    let infillPenalty = Math.abs(infill - 20) / 200;
-    success -= Math.min(infillPenalty, 0.05);
-
-    // Clamp between 70% and 95%
-    success = Math.max(0.7, Math.min(0.95, success));
-
+    success = Math.max(0.6, Math.min(1, success));
     return success;
 }
 
-/* ----------- PRICE ------------- */
+/* ------------- PRICE CALCULATION ------------- */
 function computePrice(volume, geometry=null){
-  const material = materialSelect.value;
-  const currency = currencySelect.value;
-  const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
+    const material = materialSelect.value;
+    const currency = currencySelect.value;
+    const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
 
-  const materialDensity={ pla:1.24, abs:1.04, resin:1.1, petg:1.27, pett:1.23, hips:1.03, tpu:1.21 };
-  const volume_cm3 = volume/1000;
-  const weight_g = volume_cm3*materialDensity[material]*infill;
-  weightSpan.innerText = weight_g.toFixed(2);
+    const materialDensity={ pla:1.24, abs:1.04, resin:1.1, petg:1.27, pett:1.23, hips:1.03, tpu:1.21};
+    const volume_cm3 = volume/1000;
+    const weight_g = volume_cm3 * materialDensity[material] * infill;
+    lastWeight = weight_g;
+    weightSpan.innerText = weight_g.toFixed(2);
 
-  const printTime = (volume*infill)/5000;
-  printTimeSpan.innerText = printTime.toFixed(2);
+    const printTime = (volume*infill)/PRINT_SPEED_MM3_PER_HOUR;
+    printTimeSpan.innerText = printTime.toFixed(2);
 
-  let successRate = 0.95;
-  if(geometry) successRate = computeAdvancedSuccessRate(geometry, material, infillSlider.value*1);
-  successRateSpan.innerText = (successRate*100).toFixed(1)+"%";
+    let successRate = 0.95;
+    if(geometry) successRate = computeAdvancedSuccessRate(geometry, material, infillSlider.value*1);
+    successRateSpan.innerText = (successRate*100).toFixed(1)+"%";
 
-  const materialCost = weight_g*materialRates[material];
-  const printCost = printTime*20;
-  let total = (materialCost+printCost+BASE_FEE+BASE_LABOR_FEE)/successRate;
+    const materialCost = weight_g*materialRates[material];
+    const printCost = printTime*PRINT_COST_PER_HOUR;
 
-  return currency==="USD" ? "$ "+(total/USD_TO_PHP).toFixed(2) : "₱ "+total.toFixed(2);
+    let total = (materialCost + printCost + BASE_FEE + BASE_LABOR_FEE)/successRate;
+
+    if(currency==="USD") return "$ "+(total/USD_TO_PHP).toFixed(2);
+    return "₱ "+total.toFixed(2);
 }
 
 /* ----------- FILE HANDLING ------------- */
