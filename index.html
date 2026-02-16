@@ -137,6 +137,10 @@
           <strong>Estimated Print Time:</strong> <span id="printTime"></span> hrs
         </p>
 
+        <p class="text-gray-700 dark:text-gray-300">
+          <strong>Estimated Success Rate:</strong> <span id="successRate"></span>
+        </p>
+
         <p class="mt-2 text-lg font-semibold text-gray-900 dark:text-white">
           Price: <span id="price"></span>
         </p>
@@ -180,10 +184,10 @@ const materialRates = {
 };
 const USD_TO_PHP = 56.0;
 
-const PRINT_SPEED_MM3_PER_HOUR = 5000; // realistic
-const PRINT_COST_PER_HOUR = 20; // PHP
-const BASE_FEE = 10; // PHP minimum
-const BASE_LABOR_FEE = 50; // PHP
+const PRINT_SPEED_MM3_PER_HOUR = 5000;
+const PRINT_COST_PER_HOUR = 20;
+const BASE_FEE = 10;
+const BASE_LABOR_FEE = 50;
 
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
@@ -195,6 +199,7 @@ const volumeSpan = document.getElementById("volume");
 const weightSpan = document.getElementById("weight");
 const priceSpan = document.getElementById("price");
 const printTimeSpan = document.getElementById("printTime");
+const successRateSpan = document.getElementById("successRate");
 const resultDiv = document.getElementById("result");
 const loadingText = document.getElementById("loading");
 
@@ -226,7 +231,6 @@ const controls = new THREE.OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;
 
 scene.add(new THREE.AmbientLight(0xffffff,0.4));
-
 const light1=new THREE.DirectionalLight(0xffffff,1.2);
 light1.position.set(100,100,100);
 scene.add(light1);
@@ -261,38 +265,52 @@ function calculateVolume(geometry){
     return Math.abs(total);
 }
 
-/* ------------- DYNAMIC SUCCESS RATE ------------- */
-function computeSuccessRate(volume, material, infillPercent){
-    let success = 0.95;
+/* ----------- ADVANCED SUCCESS RATE ------------- */
+function computeAdvancedSuccessRate(geometry, material, infillPercent){
+    let success = 0.98;
 
-    // Larger prints more likely to fail
+    const volume = calculateVolume(geometry);
     if(volume > 500000) success -= 0.05;
     if(volume > 1000000) success -= 0.05;
 
-    // Material difficulty
     if(material === "resin" || material === "tpu") success -= 0.05;
 
-    // Extreme infill
     if(infillPercent < 10 || infillPercent > 80) success -= 0.03;
 
-    // Clamp between 0.7 and 1
-    return Math.max(0.7, Math.min(1, success));
+    geometry.computeBoundingBox();
+    const bbox = geometry.boundingBox;
+    const xSize = bbox.max.x - bbox.min.x;
+    const ySize = bbox.max.y - bbox.min.y;
+    const zSize = bbox.max.z - bbox.min.z;
+    const minDimension = Math.min(xSize, ySize, zSize);
+    const aspectRatio = Math.max(xSize, ySize, zSize) / minDimension;
+    if(minDimension < 5) success -= 0.05;
+    if(aspectRatio > 5) success -= 0.03;
+
+    let downFacing = 0;
+    const pos = geometry.attributes.position;
+    const normal = geometry.attributes.normal;
+    if(normal){
+        for(let i=0;i<pos.count;i+=3){
+            const nz = normal.getZ(i);
+            if(nz < 0) downFacing++;
+        }
+        const downRatio = downFacing / (pos.count/3);
+        if(downRatio > 0.2) success -= 0.05;
+    }
+
+    success = Math.max(0.6, Math.min(1, success));
+    return success;
 }
 
 /* ------------- PRICE CALCULATION ------------- */
-function computePrice(volume){
+function computePrice(volume, geometry=null){
     const material = materialSelect.value;
     const currency = currencySelect.value;
     const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
 
     const materialDensity = {
-        pla:1.24, 
-        abs:1.04, 
-        resin:1.1,
-        petg:1.27,
-        pett:1.23,
-        hips:1.03,
-        tpu:1.21
+        pla:1.24, abs:1.04, resin:1.1, petg:1.27, pett:1.23, hips:1.03, tpu:1.21
     };
 
     const volume_cm3 = volume / 1000;
@@ -303,53 +321,17 @@ function computePrice(volume){
     const printTime = (volume * infill) / PRINT_SPEED_MM3_PER_HOUR;
     printTimeSpan.innerText = printTime.toFixed(2);
 
+    let successRate = 0.95;
+    if(geometry) successRate = computeAdvancedSuccessRate(geometry, material, infillSlider.value*1);
+    successRateSpan.innerText = (successRate*100).toFixed(1) + "%";
+
     const materialCost = weight_g * materialRates[material];
     const printCost = printTime * PRINT_COST_PER_HOUR;
 
-    const successRate = computeSuccessRate(volume, material, infillSlider.value*1);
-
     let total = (materialCost + printCost + BASE_FEE + BASE_LABOR_FEE) / successRate;
 
-    if(currency === "USD"){
-        return "$ " + (total / USD_TO_PHP).toFixed(2);
-    }
+    if(currency === "USD") return "$ " + (total / USD_TO_PHP).toFixed(2);
     return "₱ " + total.toFixed(2);
-}
-
-/* ------------- CHART PRICE ------------- */
-function computePricePHP(volume,infillPercent){
-    const material = materialSelect.value;
-    const materialDensity={pla:1.24, abs:1.04, resin:1.1};
-
-    const infill=infillPercent/100;
-    const volume_cm3=volume/1000;
-    const weight=volume_cm3*materialDensity[material]*infill;
-    const printTime=(volume*infill)/PRINT_SPEED_MM3_PER_HOUR;
-
-    const materialCost=weight*materialRates[material];
-    const printCost=printTime*PRINT_COST_PER_HOUR;
-
-    const successRate = computeSuccessRate(volume, material, infillPercent);
-
-    return (materialCost + printCost + BASE_FEE + BASE_LABOR_FEE) / successRate;
-}
-
-function updatePriceChart(){
-    if(!lastVolume) return;
-
-    const labels=[];
-    const data=[];
-
-    for(let i=0;i<=100;i+=5){
-        labels.push(i+"%");
-        data.push(computePricePHP(lastVolume,i));
-    }
-
-    if(priceChart){
-        priceChart.data.labels=labels;
-        priceChart.data.datasets[0].data=data;
-        priceChart.update();
-    }
 }
 
 /* ------------- FILE HANDLING ------------- */
@@ -374,12 +356,10 @@ function handleFile(file){
         scene.add(mesh);
         currentMesh=mesh;
 
-        lastVolume=calculateVolume(geometry);
+        lastVolume = calculateVolume(geometry);
 
-        volumeSpan.innerText=lastVolume.toFixed(2);
-        priceSpan.innerText=computePrice(lastVolume);
-        updatePriceChart();
-
+        volumeSpan.innerText = lastVolume.toFixed(2);
+        priceSpan.innerText = computePrice(lastVolume, geometry);
         loadingText.classList.add("hidden");
         resultDiv.classList.remove("hidden");
     };
@@ -396,22 +376,20 @@ fileInput.addEventListener("change",e=>handleFile(e.target.files[0]));
 
 materialSelect.addEventListener("change",()=>{
     if(lastVolume){
-        priceSpan.innerText=computePrice(lastVolume);
-        updatePriceChart();
+        priceSpan.innerText=computePrice(lastVolume, currentMesh.geometry);
     }
 });
 
 currencySelect.addEventListener("change",()=>{
     if(lastVolume){
-        priceSpan.innerText=computePrice(lastVolume);
+        priceSpan.innerText=computePrice(lastVolume, currentMesh.geometry);
     }
 });
 
 infillSlider.addEventListener("input",()=>{
     infillValue.innerText=infillSlider.value+"%";
     if(lastVolume){
-        priceSpan.innerText=computePrice(lastVolume);
-        updatePriceChart();
+        priceSpan.innerText=computePrice(lastVolume, currentMesh.geometry);
     }
 });
 
@@ -458,7 +436,6 @@ fullscreenBtn.addEventListener("click",()=>{
 
   const light1=new THREE.DirectionalLight(0xffffff,1);
   light1.position.set(100,100,100);
-  light1.castShadow=false;
   fsScene.add(light1);
   fsScene.add(new THREE.AmbientLight(0xffffff,0.4));
 
@@ -468,7 +445,6 @@ fullscreenBtn.addEventListener("click",()=>{
   );
   planeFS.rotation.x=-Math.PI/2;
   planeFS.position.y=-1;
-  planeFS.receiveShadow=false;
   fsScene.add(planeFS);
 
   function fsAnimate(){ requestAnimationFrame(fsAnimate); fsControls.update(); fsRenderer.render(fsScene,fsCamera); }
