@@ -274,13 +274,11 @@ function computePrice(volume, geometry = null){
     console.log("Base Cost:", baseCost);
     console.log("Risk Fee:", riskFee);
 
-    if(currency === "USD"){
-        return "$ " + (finalTotal / USD_TO_PHP).toFixed(2);
-
-document.getElementById("riskFee").innerText =
+    document.getElementById("riskFee").innerText =
     (currency === "USD"
         ? "$ " + (riskFee / USD_TO_PHP).toFixed(2)
         : "₱ " + riskFee.toFixed(2));
+
     }
 
     return "₱ " + finalTotal.toFixed(2);
