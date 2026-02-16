@@ -142,12 +142,12 @@
         Calculating...
       </p>
 
-      <!-- Price Chart -->
-      <div class="mt-6">
+      <!-- Price Chart 
+       <div class="mt-6">
         <canvas id="priceChart" class="rounded-lg bg-white dark:bg-gray-800 p-2"></canvas>
-      </div>
+      </div>-->
 
-    </div>
+    </div> 
 
     <!-- RIGHT PANEL -->
     <div class="w-full lg:w-1/2 bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-2 sm:p-4 transition-colors duration-300">
@@ -253,8 +253,8 @@ function createMesh(geometry){
     geometry,
     new THREE.MeshStandardMaterial({color:0x2563eb, metalness:0.3, roughness:0.4})
   );
-  mesh.castShadow=true;
-  mesh.receiveShadow=true;
+  mesh.castShadow=false;
+  mesh.receiveShadow=false;
   return mesh;
 }
 
@@ -277,18 +277,26 @@ function computePrice(volume){
   const currency = currencySelect.value;
   const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
 
-  const materialDensity={pla:1.24, abs:1.04, resin:1.1};
-  const volume_cm3 = volume/1000;
-  const weight_g = volume_cm3*materialDensity[material]*infill;
-  lastWeight=weight_g;
-  weightSpan.innerText=weight_g.toFixed(2);
+  const materialDensity = {pla:1.24, abs:1.04, resin:1.1};
+  const volume_cm3 = volume/1000; // mm³ to cm³
+  const weight_g = volume_cm3 * materialDensity[material] * infill; 
+  lastWeight = weight_g;
 
-  const printTime=(volume*infill)/50;
-  printTimeSpan.innerText=printTime.toFixed(2);
+  // Estimate print time: 50 mm³ per hr
+  const printTime = (volume*infill)/50; 
+  printTimeSpan.innerText = printTime.toFixed(2);
 
-  let pricePHP = weight_g*materialRates[material];
-  if(currency==="USD") return "$ "+(pricePHP/USD_TO_PHP).toFixed(2);
-  return "₱ "+pricePHP.toFixed(2);
+  // Cost calculation
+  const materialCost = weight_g * materialRates[material];
+  const printTimeCostPerHour = 20; // PHP per hour, adjustable
+  const printCost = printTime * printTimeCostPerHour;
+
+  let totalCost = materialCost + printCost;
+
+  if(currency==="USD"){
+    return "$ "+(totalCost/USD_TO_PHP).toFixed(2);
+  }
+  return "₱ "+totalCost.toFixed(2);
 }
 
 // Compute price for chart (PHP)
@@ -416,9 +424,9 @@ fullscreenBtn.addEventListener("click",()=>{
   fsControls=new THREE.OrbitControls(fsCamera,fullscreenViewer);
   fsControls.enableDamping=true;
 
-  fsRenderer=new THREE.WebGLRenderer({antialias:true});
+  fsRenderer=new THREE.WebGLRenderer({antialias:false});
   fsRenderer.setSize(window.innerWidth,window.innerHeight);
-  fsRenderer.shadowMap.enabled=true;
+  fsRenderer.shadowMap.enabled=false;
   fsRenderer.shadowMap.type=THREE.PCFSoftShadowMap;
   fullscreenViewer.appendChild(fsRenderer.domElement);
 
@@ -427,7 +435,7 @@ fullscreenBtn.addEventListener("click",()=>{
 
   const light1=new THREE.DirectionalLight(0xffffff,1);
   light1.position.set(100,100,100);
-  light1.castShadow=true;
+  light1.castShadow=false;
   fsScene.add(light1);
   fsScene.add(new THREE.AmbientLight(0xffffff,0.4));
 
@@ -437,7 +445,7 @@ fullscreenBtn.addEventListener("click",()=>{
   );
   planeFS.rotation.x=-Math.PI/2;
   planeFS.position.y=-1;
-  planeFS.receiveShadow=true;
+  planeFS.receiveShadow=false;
   fsScene.add(planeFS);
 
   function fsAnimate(){ requestAnimationFrame(fsAnimate); fsControls.update(); fsRenderer.render(fsScene,fsCamera); }
