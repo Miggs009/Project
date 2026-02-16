@@ -17,7 +17,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-    // Load dark mode from localStorage or OS preference
     if (
         localStorage.theme === "dark" || 
         (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme:dark)").matches)
@@ -89,6 +88,24 @@
           <option value="hips">HIPS (High Impact Polystyrene)</option>
           <option value="tpu">TPU (Thermoplastic Polyurethane)</option>
           <option value="resin">Resin</option>
+        </select>
+      </div>
+
+      <!-- Material Color -->
+      <div class="mt-4">
+        <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
+          Color
+        </label>
+        <select id="colorSelect"
+          class="w-full p-3 border rounded-lg
+                 bg-white dark:bg-gray-700
+                 dark:text-white dark:border-gray-600">
+          <option value="red">Red</option>
+          <option value="blue" selected>Blue</option>
+          <option value="green">Green</option>
+          <option value="black">Black</option>
+          <option value="white">White</option>
+          <option value="yellow">Yellow</option>
         </select>
       </div>
 
@@ -174,16 +191,10 @@
 
 <script>
 const materialRates = { 
-    pla:3, 
-    abs:3.5, 
-    resin:7,
-    petg:4,
-    pett:4.5,
-    hips:3.8,
-    tpu:6
+    pla:3, abs:3.5, resin:7,
+    petg:4, pett:4.5, hips:3.8, tpu:6
 };
 const USD_TO_PHP = 56.0;
-
 const PRINT_SPEED_MM3_PER_HOUR = 5000;
 const PRINT_COST_PER_HOUR = 20;
 const BASE_FEE = 10;
@@ -192,6 +203,7 @@ const BASE_LABOR_FEE = 50;
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
 const materialSelect = document.getElementById("materialSelect");
+const colorSelect = document.getElementById("colorSelect");
 const currencySelect = document.getElementById("currencySelect");
 const infillSlider = document.getElementById("infillSlider");
 const infillValue = document.getElementById("infillValue");
@@ -206,7 +218,6 @@ const loadingText = document.getElementById("loading");
 let lastVolume = 0;
 let lastWeight = 0;
 let currentMesh = null;
-let priceChart;
 
 /* ---------------- THREE.JS ---------------- */
 const scene = new THREE.Scene();
@@ -220,7 +231,6 @@ new MutationObserver(updateSceneBackground).observe(document.documentElement,{at
 
 const camera = new THREE.PerspectiveCamera(75,1,0.1,10000);
 camera.position.set(0,0,150);
-
 const viewer = document.getElementById("viewer");
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(viewer.clientWidth,viewer.clientHeight);
@@ -245,11 +255,7 @@ function resizeRenderer(){
 window.addEventListener("resize",resizeRenderer);
 resizeRenderer();
 
-function animate(){
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene,camera);
-}
+function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene,camera);}
 animate();
 
 /* ------------- VOLUME CALCULATION ------------- */
@@ -272,9 +278,7 @@ function computeAdvancedSuccessRate(geometry, material, infillPercent){
     const volume = calculateVolume(geometry);
     if(volume > 500000) success -= 0.05;
     if(volume > 1000000) success -= 0.05;
-
     if(material === "resin" || material === "tpu") success -= 0.05;
-
     if(infillPercent < 10 || infillPercent > 80) success -= 0.03;
 
     geometry.computeBoundingBox();
@@ -283,9 +287,9 @@ function computeAdvancedSuccessRate(geometry, material, infillPercent){
     const ySize = bbox.max.y - bbox.min.y;
     const zSize = bbox.max.z - bbox.min.z;
     const minDimension = Math.min(xSize, ySize, zSize);
-    const aspectRatio = Math.max(xSize, ySize, zSize) / minDimension;
-    if(minDimension < 5) success -= 0.05;
-    if(aspectRatio > 5) success -= 0.03;
+    const aspectRatio = Math.max(xSize, ySize, zSize)/minDimension;
+    if(minDimension<5) success-=0.05;
+    if(aspectRatio>5) success-=0.03;
 
     let downFacing = 0;
     const pos = geometry.attributes.position;
@@ -293,10 +297,10 @@ function computeAdvancedSuccessRate(geometry, material, infillPercent){
     if(normal){
         for(let i=0;i<pos.count;i+=3){
             const nz = normal.getZ(i);
-            if(nz < 0) downFacing++;
+            if(nz<0) downFacing++;
         }
-        const downRatio = downFacing / (pos.count/3);
-        if(downRatio > 0.2) success -= 0.05;
+        const downRatio = downFacing/(pos.count/3);
+        if(downRatio>0.2) success -=0.05;
     }
 
     success = Math.max(0.6, Math.min(1, success));
@@ -309,35 +313,33 @@ function computePrice(volume, geometry=null){
     const currency = currencySelect.value;
     const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
 
-    const materialDensity = {
-        pla:1.24, abs:1.04, resin:1.1, petg:1.27, pett:1.23, hips:1.03, tpu:1.21
-    };
-
-    const volume_cm3 = volume / 1000;
+    const materialDensity={ pla:1.24, abs:1.04, resin:1.1, petg:1.27, pett:1.23, hips:1.03, tpu:1.21};
+    const volume_cm3 = volume/1000;
     const weight_g = volume_cm3 * materialDensity[material] * infill;
     lastWeight = weight_g;
     weightSpan.innerText = weight_g.toFixed(2);
 
-    const printTime = (volume * infill) / PRINT_SPEED_MM3_PER_HOUR;
+    const printTime = (volume*infill)/PRINT_SPEED_MM3_PER_HOUR;
     printTimeSpan.innerText = printTime.toFixed(2);
 
     let successRate = 0.95;
     if(geometry) successRate = computeAdvancedSuccessRate(geometry, material, infillSlider.value*1);
-    successRateSpan.innerText = (successRate*100).toFixed(1) + "%";
+    successRateSpan.innerText = (successRate*100).toFixed(1)+"%";
 
-    const materialCost = weight_g * materialRates[material];
-    const printCost = printTime * PRINT_COST_PER_HOUR;
+    const materialCost = weight_g*materialRates[material];
+    const printCost = printTime*PRINT_COST_PER_HOUR;
 
-    let total = (materialCost + printCost + BASE_FEE + BASE_LABOR_FEE) / successRate;
+    let total = (materialCost + printCost + BASE_FEE + BASE_LABOR_FEE)/successRate;
 
-    if(currency === "USD") return "$ " + (total / USD_TO_PHP).toFixed(2);
-    return "₱ " + total.toFixed(2);
+    if(currency==="USD") return "$ "+(total/USD_TO_PHP).toFixed(2);
+    return "₱ "+total.toFixed(2);
 }
 
 /* ------------- FILE HANDLING ------------- */
+const colorMap = { red:0xff0000, blue:0x2563eb, green:0x00ff00, black:0x000000, white:0xffffff, yellow:0xffff00};
+
 function handleFile(file){
     if(!file) return;
-
     loadingText.classList.remove("hidden");
     resultDiv.classList.add("hidden");
 
@@ -347,9 +349,11 @@ function handleFile(file){
         const geometry=loader.parse(event.target.result);
         geometry.center();
 
+        const selectedColor = colorMap[colorSelect.value] || 0x2563eb;
+
         const mesh=new THREE.Mesh(
             geometry,
-            new THREE.MeshStandardMaterial({color:0x2563eb})
+            new THREE.MeshStandardMaterial({ color: selectedColor })
         );
 
         if(currentMesh) scene.remove(currentMesh);
@@ -374,24 +378,13 @@ dropZone.addEventListener("drop",e=>{
 });
 fileInput.addEventListener("change",e=>handleFile(e.target.files[0]));
 
-materialSelect.addEventListener("change",()=>{
-    if(lastVolume){
-        priceSpan.innerText=computePrice(lastVolume, currentMesh.geometry);
-    }
-});
-
-currencySelect.addEventListener("change",()=>{
-    if(lastVolume){
-        priceSpan.innerText=computePrice(lastVolume, currentMesh.geometry);
-    }
-});
-
+materialSelect.addEventListener("change",()=>{ if(lastVolume) priceSpan.innerText = computePrice(lastVolume, currentMesh.geometry); });
+currencySelect.addEventListener("change",()=>{ if(lastVolume) priceSpan.innerText = computePrice(lastVolume, currentMesh.geometry); });
 infillSlider.addEventListener("input",()=>{
     infillValue.innerText=infillSlider.value+"%";
-    if(lastVolume){
-        priceSpan.innerText=computePrice(lastVolume, currentMesh.geometry);
-    }
+    if(lastVolume) priceSpan.innerText = computePrice(lastVolume, currentMesh.geometry);
 });
+colorSelect.addEventListener("change",()=>{ if(currentMesh) currentMesh.material.color.setHex(colorMap[colorSelect.value]); });
 
 // Dark mode
 const themeToggle=document.getElementById("themeToggle");
