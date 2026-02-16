@@ -215,7 +215,16 @@ function computePrice(volume) {
   const material = materialSelect.value;
   const currency = currencySelect.value;
 
-  let pricePHP = volume * materialRates[material];
+  const materialDensity = {
+    pla: 1.24,
+    abs: 1.04,
+    resin: 1.1
+  };
+  
+  const volume_cm3 = volume / 1000;
+  const weight_g = volume_cm3 * materialDensity[material];
+
+  let pricePHP = weight_g * materialRates[material];
 
   if (currency === "USD") {
     const converted = pricePHP / USD_TO_PHP;
