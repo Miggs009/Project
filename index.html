@@ -13,21 +13,17 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
-    if (
-        localStorage.theme === "dark" || 
-        (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme:dark)").matches)
-    ){
-        document.documentElement.classList.add("dark");
-    } else {
-        document.documentElement.classList.remove("dark");
-    }
+if (
+    localStorage.theme === "dark" || 
+    (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme:dark)").matches)
+){
+    document.documentElement.classList.add("dark");
+} else {
+    document.documentElement.classList.remove("dark");
+}
 </script>
 </head>
-
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
 
 <div class="max-w-6xl mx-auto p-4 sm:p-6">
@@ -39,13 +35,10 @@
     </h1>
 
     <div class="flex gap-2">
-      <button id="themeToggle"
-        class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-sm dark:text-white">
+      <button id="themeToggle" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-sm dark:text-white">
         🌙 Dark Mode
       </button>
-
-      <button id="fullscreenBtn"
-        class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-sm dark:text-white">
+      <button id="fullscreenBtn" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-sm dark:text-white">
         🔍 Fullscreen Preview
       </button>
     </div>
@@ -57,30 +50,15 @@
     <div class="w-full lg:w-1/2 bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-4 sm:p-6 transition-colors duration-300">
 
       <!-- Drop -->
-      <div id="dropZone"
-        class="border-2 border-dashed border-gray-400 dark:border-gray-600
-               rounded-xl p-6 sm:p-8 text-center cursor-pointer
-               hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-
-        <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
-          Drag & Drop STL file
-        </p>
-
-        <input type="file"
-               id="fileInput"
-               accept=".stl"
-               class="mt-4 w-full text-sm dark:text-white">
+      <div id="dropZone" class="border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-xl p-6 sm:p-8 text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+        <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Drag & Drop STL file</p>
+        <input type="file" id="fileInput" accept=".stl" class="mt-4 w-full text-sm dark:text-white">
       </div>
 
       <!-- Material -->
       <div class="mt-4">
-        <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
-          Material
-        </label>
-        <select id="materialSelect"
-          class="w-full p-3 border rounded-lg
-                 bg-white dark:bg-gray-700
-                 dark:text-white dark:border-gray-600">
+        <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">Material</label>
+        <select id="materialSelect" class="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 dark:text-white dark:border-gray-600">
           <option value="pla">PLA (Polylactic Acid)</option>
           <option value="abs">ABS (Acrylonitrile Butadiene Styrene)</option>
           <option value="petg">PETG (Polyethylene Terepthalate)</option>
@@ -91,106 +69,65 @@
         </select>
       </div>
 
-      <!-- Material Color Buttons -->
-<div class="mt-4">
-  <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
-    Color
-  </label>
-  <div id="colorButtons" class="flex gap-2 flex-wrap">
-    <button data-color="red" class="w-10 h-10 rounded-full bg-red-500 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
-    <button data-color="blue" class="w-10 h-10 rounded-full bg-blue-600 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
-    <button data-color="green" class="w-10 h-10 rounded-full bg-green-500 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
-    <button data-color="black" class="w-10 h-10 rounded-full bg-black border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
-    <button data-color="white" class="w-10 h-10 rounded-full bg-white border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
-    <button data-color="yellow" class="w-10 h-10 rounded-full bg-yellow-400 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
-  </div>
-</div>
+      <!-- Filament Color Buttons -->
+      <div class="mt-4">
+        <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">Color</label>
+        <div id="colorButtons" class="flex gap-2 flex-wrap">
+          <button data-color="red" class="w-10 h-10 rounded-full bg-red-500 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+          <button data-color="blue" class="w-10 h-10 rounded-full bg-blue-600 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400 ring-4 ring-gray-500"></button>
+          <button data-color="green" class="w-10 h-10 rounded-full bg-green-500 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+          <button data-color="black" class="w-10 h-10 rounded-full bg-black border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+          <button data-color="white" class="w-10 h-10 rounded-full bg-white border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+          <button data-color="yellow" class="w-10 h-10 rounded-full bg-yellow-400 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+        </div>
+      </div>
 
       <!-- Infill Slider -->
       <div class="mt-4">
-        <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
-          Infill Percentage
-        </label>
-        <input type="range" id="infillSlider" min="0" max="100" value="20"
-          class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer
-                 dark:bg-gray-600">
+        <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">Infill Percentage</label>
+        <input type="range" id="infillSlider" min="0" max="100" value="20" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600">
         <div class="flex justify-between text-sm text-gray-600 dark:text-gray-300">
-          <span>0%</span>
-          <span id="infillValue">20%</span>
-          <span>100%</span>
+          <span>0%</span><span id="infillValue">20%</span><span>100%</span>
         </div>
       </div>
 
       <!-- Currency -->
       <div class="mt-4">
-        <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
-          Currency
-        </label>
-        <select id="currencySelect"
-          class="w-full p-3 border rounded-lg
-                 bg-white dark:bg-gray-700
-                 dark:text-white dark:border-gray-600">
+        <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">Currency</label>
+        <select id="currencySelect" class="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 dark:text-white dark:border-gray-600">
           <option value="PHP" selected>PHP (₱)</option>
           <option value="USD">USD ($)</option>
         </select>
       </div>
 
       <!-- Result -->
-      <div id="result"
-        class="mt-6 hidden bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-
-        <p class="text-gray-700 dark:text-gray-300">
-          <strong>Volume:</strong> <span id="volume"></span> mm³
-        </p>
-
-        <p class="text-gray-700 dark:text-gray-300">
-          <strong>Weight:</strong> <span id="weight"></span> g
-        </p>
-
-        <p class="text-gray-700 dark:text-gray-300">
-          <strong>Estimated Print Time:</strong> <span id="printTime"></span> hrs
-        </p>
-
-        <p class="text-gray-700 dark:text-gray-300">
-          <strong>Estimated Success Rate:</strong> <span id="successRate"></span>
-        </p>
-
-        <p class="mt-2 text-lg font-semibold text-gray-900 dark:text-white">
-          Price: <span id="price"></span>
-        </p>
+      <div id="result" class="mt-6 hidden bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+        <p class="text-gray-700 dark:text-gray-300"><strong>Volume:</strong> <span id="volume"></span> mm³</p>
+        <p class="text-gray-700 dark:text-gray-300"><strong>Weight:</strong> <span id="weight"></span> g</p>
+        <p class="text-gray-700 dark:text-gray-300"><strong>Estimated Print Time:</strong> <span id="printTime"></span> hrs</p>
+        <p class="text-gray-700 dark:text-gray-300"><strong>Estimated Success Rate:</strong> <span id="successRate"></span></p>
+        <p class="mt-2 text-lg font-semibold text-gray-900 dark:text-white">Price: <span id="price"></span></p>
       </div>
 
-      <p id="loading" class="mt-4 text-blue-500 hidden text-sm">
-        Calculating...
-      </p>
-
-    </div> 
+      <p id="loading" class="mt-4 text-blue-500 hidden text-sm">Calculating...</p>
+    </div>
 
     <!-- RIGHT PANEL -->
     <div class="w-full lg:w-1/2 bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-2 sm:p-4 transition-colors duration-300">
-      <div id="viewer"
-        class="w-full min-h-[600px] rounded-xl bg-gray-200 dark:bg-gray-700">
-      </div>
+      <div id="viewer" class="w-full min-h-[600px] rounded-xl bg-gray-200 dark:bg-gray-700"></div>
     </div>
 
   </div>
 </div>
 
 <!-- Fullscreen overlay -->
-<div id="fullscreenOverlay"
-     class="fixed inset-0 bg-black z-50 hidden">
+<div id="fullscreenOverlay" class="fixed inset-0 bg-black z-50 hidden">
   <div id="fullscreenViewer" class="w-full h-full"></div>
-  <button id="closeFullscreen"
-          class="absolute top-4 right-4 z-60 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg">
-    ❌
-  </button>
+  <button id="closeFullscreen" class="absolute top-4 right-4 z-60 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg">❌</button>
 </div>
 
 <script>
-const materialRates = { 
-    pla:3, abs:3.5, resin:7,
-    petg:4, pett:4.5, hips:3.8, tpu:6
-};
+const materialRates = { pla:3, abs:3.5, resin:7, petg:4, pett:4.5, hips:3.8, tpu:6 };
 const USD_TO_PHP = 56.0;
 const PRINT_SPEED_MM3_PER_HOUR = 5000;
 const PRINT_COST_PER_HOUR = 20;
@@ -200,7 +137,6 @@ const BASE_LABOR_FEE = 50;
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
 const materialSelect = document.getElementById("materialSelect");
-const colorSelect = document.getElementById("colorSelect");
 const currencySelect = document.getElementById("currencySelect");
 const infillSlider = document.getElementById("infillSlider");
 const infillValue = document.getElementById("infillValue");
@@ -211,21 +147,16 @@ const printTimeSpan = document.getElementById("printTime");
 const successRateSpan = document.getElementById("successRate");
 const resultDiv = document.getElementById("result");
 const loadingText = document.getElementById("loading");
+const colorButtons = document.getElementById("colorButtons");
 
 let lastVolume = 0;
-let lastWeight = 0;
 let currentMesh = null;
+
+const colorMap = { red:0xff0000, blue:0x2563eb, green:0x00ff00, black:0x000000, white:0xffffff, yellow:0xffff00 };
 
 /* ---------------- THREE.JS ---------------- */
 const scene = new THREE.Scene();
-function updateSceneBackground() {
-    scene.background = document.documentElement.classList.contains("dark") 
-        ? new THREE.Color(0x1f2937) 
-        : new THREE.Color(0xf3f4f6);
-}
-updateSceneBackground();
-new MutationObserver(updateSceneBackground).observe(document.documentElement,{attributes:true});
-
+scene.background = document.documentElement.classList.contains("dark") ? new THREE.Color(0x1f2937) : new THREE.Color(0xf3f4f6);
 const camera = new THREE.PerspectiveCamera(75,1,0.1,10000);
 camera.position.set(0,0,150);
 const viewer = document.getElementById("viewer");
@@ -236,183 +167,118 @@ viewer.appendChild(renderer.domElement);
 
 const controls = new THREE.OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;
-
 scene.add(new THREE.AmbientLight(0xffffff,0.4));
-const light1=new THREE.DirectionalLight(0xffffff,1.2);
-light1.position.set(100,100,100);
-scene.add(light1);
+const light1=new THREE.DirectionalLight(0xffffff,1.2); light1.position.set(100,100,100); scene.add(light1);
 
-function resizeRenderer(){
-    const w=viewer.clientWidth;
-    const h=viewer.clientHeight;
-    renderer.setSize(w,h);
-    camera.aspect=w/h;
-    camera.updateProjectionMatrix();
-}
-window.addEventListener("resize",resizeRenderer);
-resizeRenderer();
+window.addEventListener("resize",()=>{ renderer.setSize(viewer.clientWidth,viewer.clientHeight); camera.aspect=viewer.clientWidth/viewer.clientHeight; camera.updateProjectionMatrix(); });
 
 function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene,camera);}
 animate();
 
-/* ------------- VOLUME CALCULATION ------------- */
+/* ----------- VOLUME ------------- */
 function calculateVolume(geometry){
-    const pos=geometry.attributes.position;
-    let total=0;
-    for(let i=0;i<pos.count;i+=3){
-        const p1=new THREE.Vector3().fromBufferAttribute(pos,i);
-        const p2=new THREE.Vector3().fromBufferAttribute(pos,i+1);
-        const p3=new THREE.Vector3().fromBufferAttribute(pos,i+2);
-        total+=p1.dot(p2.cross(p3))/6.0;
-    }
-    return Math.abs(total);
+  const pos = geometry.attributes.position;
+  let total = 0;
+  for(let i=0;i<pos.count;i+=3){
+    const p1 = new THREE.Vector3().fromBufferAttribute(pos,i);
+    const p2 = new THREE.Vector3().fromBufferAttribute(pos,i+1);
+    const p3 = new THREE.Vector3().fromBufferAttribute(pos,i+2);
+    total += p1.dot(p2.cross(p3))/6.0;
+  }
+  return Math.abs(total);
 }
 
-/* ----------- ADVANCED SUCCESS RATE ------------- */
+/* ----------- SUCCESS RATE ------------- */
 function computeAdvancedSuccessRate(geometry, material, infillPercent){
-    let success = 0.98;
-
-    const volume = calculateVolume(geometry);
-    if(volume > 500000) success -= 0.05;
-    if(volume > 1000000) success -= 0.05;
-    if(material === "resin" || material === "tpu") success -= 0.05;
-    if(infillPercent < 10 || infillPercent > 80) success -= 0.03;
-
-    geometry.computeBoundingBox();
-    const bbox = geometry.boundingBox;
-    const xSize = bbox.max.x - bbox.min.x;
-    const ySize = bbox.max.y - bbox.min.y;
-    const zSize = bbox.max.z - bbox.min.z;
-    const minDimension = Math.min(xSize, ySize, zSize);
-    const aspectRatio = Math.max(xSize, ySize, zSize)/minDimension;
-    if(minDimension<5) success-=0.05;
-    if(aspectRatio>5) success-=0.03;
-
-    let downFacing = 0;
-    const pos = geometry.attributes.position;
-    const normal = geometry.attributes.normal;
-    if(normal){
-        for(let i=0;i<pos.count;i+=3){
-            const nz = normal.getZ(i);
-            if(nz<0) downFacing++;
-        }
-        const downRatio = downFacing/(pos.count/3);
-        if(downRatio>0.2) success -=0.05;
-    }
-
-    success = Math.max(0.6, Math.min(1, success));
-    return success;
+  let success = 0.98;
+  const volume = calculateVolume(geometry);
+  if(volume>500000) success-=0.05;
+  if(volume>1000000) success-=0.05;
+  if(material==="resin"||material==="tpu") success-=0.05;
+  if(infillPercent<10||infillPercent>80) success-=0.03;
+  geometry.computeBoundingBox();
+  const bbox=geometry.boundingBox;
+  const minDim=Math.min(bbox.max.x-bbox.min.x,bbox.max.y-bbox.min.y,bbox.max.z-bbox.min.z);
+  const maxDim=Math.max(bbox.max.x-bbox.min.x,bbox.max.y-bbox.min.y,bbox.max.z-bbox.min.z);
+  const aspect=maxDim/minDim;
+  if(minDim<5) success-=0.05;
+  if(aspect>5) success-=0.03;
+  return Math.max(0.6,Math.min(1,success));
 }
 
-/* ------------- PRICE CALCULATION ------------- */
+/* ----------- PRICE ------------- */
 function computePrice(volume, geometry=null){
-    const material = materialSelect.value;
-    const currency = currencySelect.value;
-    const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
+  const material = materialSelect.value;
+  const currency = currencySelect.value;
+  const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
 
-    const materialDensity={ pla:1.24, abs:1.04, resin:1.1, petg:1.27, pett:1.23, hips:1.03, tpu:1.21};
-    const volume_cm3 = volume/1000;
-    const weight_g = volume_cm3 * materialDensity[material] * infill;
-    lastWeight = weight_g;
-    weightSpan.innerText = weight_g.toFixed(2);
+  const materialDensity={ pla:1.24, abs:1.04, resin:1.1, petg:1.27, pett:1.23, hips:1.03, tpu:1.21 };
+  const volume_cm3 = volume/1000;
+  const weight_g = volume_cm3*materialDensity[material]*infill;
+  weightSpan.innerText = weight_g.toFixed(2);
 
-    const printTime = (volume*infill)/PRINT_SPEED_MM3_PER_HOUR;
-    printTimeSpan.innerText = printTime.toFixed(2);
+  const printTime = (volume*infill)/5000;
+  printTimeSpan.innerText = printTime.toFixed(2);
 
-    let successRate = 0.95;
-    if(geometry) successRate = computeAdvancedSuccessRate(geometry, material, infillSlider.value*1);
-    successRateSpan.innerText = (successRate*100).toFixed(1)+"%";
+  let successRate = 0.95;
+  if(geometry) successRate = computeAdvancedSuccessRate(geometry, material, infillSlider.value*1);
+  successRateSpan.innerText = (successRate*100).toFixed(1)+"%";
 
-    const materialCost = weight_g*materialRates[material];
-    const printCost = printTime*PRINT_COST_PER_HOUR;
+  const materialCost = weight_g*materialRates[material];
+  const printCost = printTime*20;
+  let total = (materialCost+printCost+BASE_FEE+BASE_LABOR_FEE)/successRate;
 
-    let total = (materialCost + printCost + BASE_FEE + BASE_LABOR_FEE)/successRate;
-
-    if(currency==="USD") return "$ "+(total/USD_TO_PHP).toFixed(2);
-    return "₱ "+total.toFixed(2);
+  return currency==="USD" ? "$ "+(total/USD_TO_PHP).toFixed(2) : "₱ "+total.toFixed(2);
 }
 
-/* ------------- FILE HANDLING ------------- */
-const colorMap = { red:0xff0000, blue:0x2563eb, green:0x00ff00, black:0x000000, white:0xffffff, yellow:0xffff00};
-
+/* ----------- FILE HANDLING ------------- */
 function handleFile(file){
-    if(!file) return;
-    loadingText.classList.remove("hidden");
-    resultDiv.classList.add("hidden");
+  if(!file) return;
+  loadingText.classList.remove("hidden");
+  resultDiv.classList.add("hidden");
 
-    const reader=new FileReader();
-    reader.onload=function(event){
-        const loader=new THREE.STLLoader();
-        const geometry=loader.parse(event.target.result);
-        geometry.center();
+  const reader = new FileReader();
+  reader.onload = function(event){
+    const loader = new THREE.STLLoader();
+    const geometry = loader.parse(event.target.result);
+    geometry.center();
 
-        const selectedColor = colorMap[colorSelect.value] || 0x2563eb;
+    const selectedColor = 0x2563eb; // default
+    const mesh = new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:selectedColor}));
+    if(currentMesh) scene.remove(currentMesh);
+    scene.add(mesh);
+    currentMesh = mesh;
 
-        const mesh=new THREE.Mesh(
-            geometry,
-            new THREE.MeshStandardMaterial({ color: selectedColor })
-        );
+    lastVolume = calculateVolume(geometry);
+    volumeSpan.innerText = lastVolume.toFixed(2);
+    priceSpan.innerText = computePrice(lastVolume, geometry);
 
-        if(currentMesh) scene.remove(currentMesh);
-        scene.add(mesh);
-        currentMesh=mesh;
-
-        lastVolume = calculateVolume(geometry);
-
-        volumeSpan.innerText = lastVolume.toFixed(2);
-        priceSpan.innerText = computePrice(lastVolume, geometry);
-        loadingText.classList.add("hidden");
-        resultDiv.classList.remove("hidden");
-    };
-    reader.readAsArrayBuffer(file);
+    loadingText.classList.add("hidden");
+    resultDiv.classList.remove("hidden");
+  };
+  reader.readAsArrayBuffer(file);
 }
 
-/* ------------- EVENTS ------------- */
+/* ----------- EVENTS ------------- */
 dropZone.addEventListener("dragover",e=>e.preventDefault());
-dropZone.addEventListener("drop",e=>{
-    e.preventDefault();
-    handleFile(e.dataTransfer.files[0]);
-});
+dropZone.addEventListener("drop",e=>{ e.preventDefault(); handleFile(e.dataTransfer.files[0]); });
 fileInput.addEventListener("change",e=>handleFile(e.target.files[0]));
-
 materialSelect.addEventListener("change",()=>{ if(lastVolume) priceSpan.innerText = computePrice(lastVolume, currentMesh.geometry); });
 currencySelect.addEventListener("change",()=>{ if(lastVolume) priceSpan.innerText = computePrice(lastVolume, currentMesh.geometry); });
-infillSlider.addEventListener("input",()=>{
-    infillValue.innerText=infillSlider.value+"%";
-    if(lastVolume) priceSpan.innerText = computePrice(lastVolume, currentMesh.geometry);
-});
-const colorButtons = document.getElementById("colorButtons");
-const colorMap = { 
-  red:0xff0000, 
-  blue:0x2563eb, 
-  green:0x00ff00, 
-  black:0x000000, 
-  white:0xffffff, 
-  yellow:0xffff00
-};
-
-colorButtons.addEventListener("click", (e) => {
-  if(e.target.tagName !== "BUTTON") return; // ignore clicks outside buttons
-  const selected = e.target.getAttribute("data-color");
-  if(currentMesh && selected in colorMap){
-    currentMesh.material.color.setHex(colorMap[selected]);
-  }
-
-  // Optional: highlight selected button
-  Array.from(colorButtons.children).forEach(btn => btn.classList.remove("ring-4", "ring-gray-500"));
-  e.target.classList.add("ring-4", "ring-gray-500");
+infillSlider.addEventListener("input",()=>{ infillValue.innerText=infillSlider.value+"%"; if(lastVolume) priceSpan.innerText = computePrice(lastVolume, currentMesh.geometry); });
+colorButtons.addEventListener("click", e=>{
+  if(e.target.tagName!=="BUTTON") return;
+  const selected=e.target.getAttribute("data-color");
+  if(currentMesh && selected in colorMap) currentMesh.material.color.setHex(colorMap[selected]);
+  Array.from(colorButtons.children).forEach(btn=>btn.classList.remove("ring-4","ring-gray-500"));
+  e.target.classList.add("ring-4","ring-gray-500");
 });
 
-// Dark mode
-const themeToggle=document.getElementById("themeToggle");
-themeToggle.addEventListener("click",()=>{
+// Dark Mode
+document.getElementById("themeToggle").addEventListener("click",()=>{
   if(document.documentElement.classList.contains("dark")){
-    document.documentElement.classList.remove("dark");
-    localStorage.theme="light";
-  } else {
-    document.documentElement.classList.add("dark");
-    localStorage.theme="dark";
-  }
+    document.documentElement.classList.remove("dark"); localStorage.theme="light";
+  } else { document.documentElement.classList.add("dark"); localStorage.theme="dark"; }
 });
 
 // Fullscreen
@@ -422,55 +288,25 @@ const fullscreenBtn=document.getElementById("fullscreenBtn");
 const closeFullscreen=document.getElementById("closeFullscreen");
 
 let fsRenderer, fsScene, fsCamera, fsControls;
-
 fullscreenBtn.addEventListener("click",()=>{
   if(!currentMesh) return;
   fullscreenOverlay.classList.remove("hidden");
-
   fsScene=new THREE.Scene();
   fsScene.background=scene.background.clone();
   fsCamera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,10000);
   fsCamera.position.copy(camera.position);
-
   fsControls=new THREE.OrbitControls(fsCamera,fullscreenViewer);
   fsControls.enableDamping=true;
-
   fsRenderer=new THREE.WebGLRenderer({antialias:false});
   fsRenderer.setSize(window.innerWidth,window.innerHeight);
-  fsRenderer.shadowMap.enabled=false;
-  fsRenderer.shadowMap.type=THREE.PCFSoftShadowMap;
   fullscreenViewer.appendChild(fsRenderer.domElement);
-
-  const meshClone=currentMesh.clone();
-  fsScene.add(meshClone);
-
-  const light1=new THREE.DirectionalLight(0xffffff,1);
-  light1.position.set(100,100,100);
-  fsScene.add(light1);
+  const meshClone=currentMesh.clone(); fsScene.add(meshClone);
+  fsScene.add(new THREE.DirectionalLight(0xffffff,1));
   fsScene.add(new THREE.AmbientLight(0xffffff,0.4));
-
-  const planeFS=new THREE.Mesh(
-    new THREE.PlaneGeometry(500,500),
-    new THREE.ShadowMaterial({opacity:0.2})
-  );
-  planeFS.rotation.x=-Math.PI/2;
-  planeFS.position.y=-1;
-  fsScene.add(planeFS);
-
-  function fsAnimate(){ requestAnimationFrame(fsAnimate); fsControls.update(); fsRenderer.render(fsScene,fsCamera); }
+  function fsAnimate(){ requestAnimationFrame(fsAnimate); fsControls.update(); fsRenderer.render(fsScene,fsCamera);}
   fsAnimate();
-
-  window.addEventListener("resize",()=>{
-    fsCamera.aspect=window.innerWidth/window.innerHeight;
-    fsCamera.updateProjectionMatrix();
-    fsRenderer.setSize(window.innerWidth,window.innerHeight);
-  });
 });
-
-closeFullscreen.addEventListener("click",()=>{
-  fullscreenOverlay.classList.add("hidden");
-  fullscreenViewer.innerHTML="";
-});
+closeFullscreen.addEventListener("click",()=>{ fullscreenOverlay.classList.add("hidden"); fullscreenViewer.innerHTML=""; });
 </script>
 </body>
 </html>
