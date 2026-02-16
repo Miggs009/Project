@@ -107,6 +107,9 @@ if (
         <p class="text-gray-700 dark:text-gray-300"><strong>Estimated Print Time:</strong> <span id="printTime"></span> hrs</p>
         <p class="text-gray-700 dark:text-gray-300"><strong>Estimated Success Rate:</strong> <span id="successRate"></span></p>
         <p class="mt-2 text-lg font-semibold text-gray-900 dark:text-white">Price: <span id="price"></span></p>
+<p class="text-gray-700 dark:text-gray-300">
+  <strong>Risk Fee:</strong> <span id="riskFee"></span>
+</p>
       </div>
 
       <p id="loading" class="mt-4 text-blue-500 hidden text-sm">Calculating...</p>
@@ -225,31 +228,62 @@ function computeAdvancedSuccessRate(geometry, material, infillPercent){
 }
 
 /* ------------- PRICE CALCULATION ------------- */
-function computePrice(volume, geometry=null){
+function computePrice(volume, geometry = null){
     const material = materialSelect.value;
     const currency = currencySelect.value;
-    const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
+    const infill = Math.min(Math.max(Number(infillSlider.value),0),100) / 100;
 
-    const materialDensity={ pla:1.24, abs:1.04, resin:1.1, petg:1.27, pett:1.23, hips:1.03, tpu:1.21};
-    const volume_cm3 = volume/1000;
+    const materialDensity = {
+        pla:1.24, abs:1.04, resin:1.1,
+        petg:1.27, pett:1.23, hips:1.03, tpu:1.21
+    };
+
+    const volume_cm3 = volume / 1000;
     const weight_g = volume_cm3 * materialDensity[material] * infill;
-    lastWeight = weight_g;
+
     weightSpan.innerText = weight_g.toFixed(2);
 
-    const printTime = (volume*infill)/PRINT_SPEED_MM3_PER_HOUR;
+    const printTime = (volume * infill) / PRINT_SPEED_MM3_PER_HOUR;
     printTimeSpan.innerText = printTime.toFixed(2);
 
+    // ---- SUCCESS RATE ----
     let successRate = 0.95;
-    if(geometry) successRate = computeAdvancedSuccessRate(geometry, material, infillSlider.value*1);
-    successRateSpan.innerText = (successRate*100).toFixed(1)+"%";
+    if(geometry){
+        successRate = computeAdvancedSuccessRate(
+            geometry,
+            material,
+            Number(infillSlider.value)
+        );
+    }
 
-    const materialCost = weight_g*materialRates[material];
-    const printCost = printTime*PRINT_COST_PER_HOUR;
+    successRateSpan.innerText = (successRate * 100).toFixed(1) + "%";
 
-    let total = (materialCost + printCost + BASE_FEE + BASE_LABOR_FEE)/successRate;
+    // ---- BASE COST ----
+    const materialCost = weight_g * materialRates[material];
+    const printCost = printTime * PRINT_COST_PER_HOUR;
 
-    if(currency==="USD") return "$ "+(total/USD_TO_PHP).toFixed(2);
-    return "₱ "+total.toFixed(2);
+    const baseCost = materialCost + printCost + BASE_FEE + BASE_LABOR_FEE;
+
+    // ---- RISK CALCULATION ----
+    const failureChance = 1 - successRate;   // Example: 0.10 if 90%
+    const riskFee = baseCost * failureChance;
+
+    const finalTotal = baseCost + riskFee;
+
+    // ---- DISPLAY RISK (Optional: Add in HTML later) ----
+    console.log("Base Cost:", baseCost);
+    console.log("Risk Fee:", riskFee);
+
+    if(currency === "USD"){
+        return "$ " + (finalTotal / USD_TO_PHP).toFixed(2);
+
+document.getElementById("riskFee").innerText =
+    (currency === "USD"
+        ? "$ " + (riskFee / USD_TO_PHP).toFixed(2)
+        : "₱ " + riskFee.toFixed(2));
+    }
+
+    return "₱ " + finalTotal.toFixed(2);
 }
 
 /* ----------- FILE HANDLING ------------- */
