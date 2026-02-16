@@ -91,23 +91,20 @@
         </select>
       </div>
 
-      <!-- Material Color -->
-      <div class="mt-4">
-        <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
-          Color
-        </label>
-        <select id="colorSelect"
-          class="w-full p-3 border rounded-lg
-                 bg-white dark:bg-gray-700
-                 dark:text-white dark:border-gray-600">
-          <option value="red">Red</option>
-          <option value="blue" selected>Blue</option>
-          <option value="green">Green</option>
-          <option value="black">Black</option>
-          <option value="white">White</option>
-          <option value="yellow">Yellow</option>
-        </select>
-      </div>
+      <!-- Material Color Buttons -->
+<div class="mt-4">
+  <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
+    Color
+  </label>
+  <div id="colorButtons" class="flex gap-2 flex-wrap">
+    <button data-color="red" class="w-10 h-10 rounded-full bg-red-500 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+    <button data-color="blue" class="w-10 h-10 rounded-full bg-blue-600 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+    <button data-color="green" class="w-10 h-10 rounded-full bg-green-500 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+    <button data-color="black" class="w-10 h-10 rounded-full bg-black border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+    <button data-color="white" class="w-10 h-10 rounded-full bg-white border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+    <button data-color="yellow" class="w-10 h-10 rounded-full bg-yellow-400 border-2 border-gray-300 hover:ring-2 hover:ring-gray-400"></button>
+  </div>
+</div>
 
       <!-- Infill Slider -->
       <div class="mt-4">
@@ -384,7 +381,27 @@ infillSlider.addEventListener("input",()=>{
     infillValue.innerText=infillSlider.value+"%";
     if(lastVolume) priceSpan.innerText = computePrice(lastVolume, currentMesh.geometry);
 });
-colorSelect.addEventListener("change",()=>{ if(currentMesh) currentMesh.material.color.setHex(colorMap[colorSelect.value]); });
+const colorButtons = document.getElementById("colorButtons");
+const colorMap = { 
+  red:0xff0000, 
+  blue:0x2563eb, 
+  green:0x00ff00, 
+  black:0x000000, 
+  white:0xffffff, 
+  yellow:0xffff00
+};
+
+colorButtons.addEventListener("click", (e) => {
+  if(e.target.tagName !== "BUTTON") return; // ignore clicks outside buttons
+  const selected = e.target.getAttribute("data-color");
+  if(currentMesh && selected in colorMap){
+    currentMesh.material.color.setHex(colorMap[selected]);
+  }
+
+  // Optional: highlight selected button
+  Array.from(colorButtons.children).forEach(btn => btn.classList.remove("ring-4", "ring-gray-500"));
+  e.target.classList.add("ring-4", "ring-gray-500");
+});
 
 // Dark mode
 const themeToggle=document.getElementById("themeToggle");
