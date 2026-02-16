@@ -189,21 +189,33 @@ function calculateVolume(geometry){
 }
 
 /* ----------- SUCCESS RATE ------------- */
-function computeAdvancedSuccessRate(geometry, material, infillPercent){
-  let success = 0.98;
-  const volume = calculateVolume(geometry);
-  if(volume>500000) success-=0.05;
-  if(volume>1000000) success-=0.05;
-  if(material==="resin"||material==="tpu") success-=0.05;
-  if(infillPercent<10||infillPercent>80) success-=0.03;
-  geometry.computeBoundingBox();
-  const bbox=geometry.boundingBox;
-  const minDim=Math.min(bbox.max.x-bbox.min.x,bbox.max.y-bbox.min.y,bbox.max.z-bbox.min.z);
-  const maxDim=Math.max(bbox.max.x-bbox.min.x,bbox.max.y-bbox.min.y,bbox.max.z-bbox.min.z);
-  const aspect=maxDim/minDim;
-  if(minDim<5) success-=0.05;
-  if(aspect>5) success-=0.03;
-  return Math.max(0.6,Math.min(1,success));
+function computeSuccessRate(volume, material, infill) {
+
+    let success = 0.95;
+
+    // Volume scaling (bigger = gradually lower success)
+    let volumePenalty = Math.min(volume / 2000000, 0.08); 
+    success -= volumePenalty;
+
+    // Material difficulty
+    const materialPenalty = {
+        PLA: 0,
+        PETG: 0.02,
+        ABS: 0.05,
+        TPU: 0.06,
+        ASA: 0.05
+    };
+
+    success -= materialPenalty[material] || 0;
+
+    // Infill scaling (far from 20% ideal reduces success)
+    let infillPenalty = Math.abs(infill - 20) / 200;
+    success -= Math.min(infillPenalty, 0.05);
+
+    // Clamp between 70% and 95%
+    success = Math.max(0.7, Math.min(0.95, success));
+
+    return success;
 }
 
 /* ----------- PRICE ------------- */
