@@ -261,24 +261,22 @@ function computePrice(volume, geometry = null){
     // ---- BASE COST ----
     const materialCost = weight_g * materialRates[material];
     const printCost = printTime * PRINT_COST_PER_HOUR;
-
     const baseCost = materialCost + printCost + BASE_FEE + BASE_LABOR_FEE;
 
     // ---- RISK CALCULATION ----
-    const failureChance = 1 - successRate;   // Example: 0.10 if 90%
+    const failureChance = 1 - successRate;
     const riskFee = baseCost * failureChance;
-
     const finalTotal = baseCost + riskFee;
 
-    // ---- DISPLAY RISK (Optional: Add in HTML later) ----
-    console.log("Base Cost:", baseCost);
-    console.log("Risk Fee:", riskFee);
-
+    // ---- DISPLAY RISK ----
     document.getElementById("riskFee").innerText =
-    (currency === "USD"
+        currency === "USD"
         ? "$ " + (riskFee / USD_TO_PHP).toFixed(2)
-        : "₱ " + riskFee.toFixed(2));
+        : "₱ " + riskFee.toFixed(2);
 
+    // ---- RETURN FINAL PRICE ----
+    if(currency === "USD"){
+        return "$ " + (finalTotal / USD_TO_PHP).toFixed(2);
     }
 
     return "₱ " + finalTotal.toFixed(2);
