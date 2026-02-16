@@ -146,11 +146,6 @@
         Calculating...
       </p>
 
-      <!-- Price Chart 
-       <div class="mt-6">
-        <canvas id="priceChart" class="rounded-lg bg-white dark:bg-gray-800 p-2"></canvas>
-      </div>-->
-
     </div> 
 
     <!-- RIGHT PANEL -->
@@ -182,12 +177,13 @@ const materialRates = {
     pett:4.5,
     hips:3.8,
     tpu:6
- };
+};
 const USD_TO_PHP = 56.0;
 
 const PRINT_SPEED_MM3_PER_HOUR = 5000; // realistic
 const PRINT_COST_PER_HOUR = 20; // PHP
 const BASE_FEE = 10; // PHP minimum
+const BASE_LABOR_FEE = 50; // PHP
 
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
@@ -208,17 +204,14 @@ let currentMesh = null;
 let priceChart;
 
 /* ---------------- THREE.JS ---------------- */
-
 const scene = new THREE.Scene();
-
 function updateSceneBackground() {
     scene.background = document.documentElement.classList.contains("dark") 
         ? new THREE.Color(0x1f2937) 
         : new THREE.Color(0xf3f4f6);
 }
 updateSceneBackground();
-new MutationObserver(updateSceneBackground)
-    .observe(document.documentElement,{attributes:true});
+new MutationObserver(updateSceneBackground).observe(document.documentElement,{attributes:true});
 
 const camera = new THREE.PerspectiveCamera(75,1,0.1,10000);
 camera.position.set(0,0,150);
@@ -256,7 +249,6 @@ function animate(){
 animate();
 
 /* ------------- VOLUME CALCULATION ------------- */
-
 function calculateVolume(geometry){
     const pos=geometry.attributes.position;
     let total=0;
@@ -269,10 +261,26 @@ function calculateVolume(geometry){
     return Math.abs(total);
 }
 
+/* ------------- DYNAMIC SUCCESS RATE ------------- */
+function computeSuccessRate(volume, material, infillPercent){
+    let success = 0.95;
+
+    // Larger prints more likely to fail
+    if(volume > 500000) success -= 0.05;
+    if(volume > 1000000) success -= 0.05;
+
+    // Material difficulty
+    if(material === "resin" || material === "tpu") success -= 0.05;
+
+    // Extreme infill
+    if(infillPercent < 10 || infillPercent > 80) success -= 0.03;
+
+    // Clamp between 0.7 and 1
+    return Math.max(0.7, Math.min(1, success));
+}
+
 /* ------------- PRICE CALCULATION ------------- */
-
 function computePrice(volume){
-
     const material = materialSelect.value;
     const currency = currencySelect.value;
     const infill = Math.min(Math.max(Number(infillSlider.value),0),100)/100;
@@ -287,7 +295,7 @@ function computePrice(volume){
         tpu:1.21
     };
 
-    const volume_cm3 = volume/1000;
+    const volume_cm3 = volume / 1000;
     const weight_g = volume_cm3 * materialDensity[material] * infill;
     lastWeight = weight_g;
     weightSpan.innerText = weight_g.toFixed(2);
@@ -298,18 +306,18 @@ function computePrice(volume){
     const materialCost = weight_g * materialRates[material];
     const printCost = printTime * PRINT_COST_PER_HOUR;
 
-    let total = materialCost + printCost + BASE_FEE;
+    const successRate = computeSuccessRate(volume, material, infillSlider.value*1);
 
-    if(currency==="USD"){
-        return "$ " + (total/USD_TO_PHP).toFixed(2);
+    let total = (materialCost + printCost + BASE_FEE + BASE_LABOR_FEE) / successRate;
+
+    if(currency === "USD"){
+        return "$ " + (total / USD_TO_PHP).toFixed(2);
     }
     return "₱ " + total.toFixed(2);
 }
 
 /* ------------- CHART PRICE ------------- */
-
 function computePricePHP(volume,infillPercent){
-
     const material = materialSelect.value;
     const materialDensity={pla:1.24, abs:1.04, resin:1.1};
 
@@ -321,7 +329,9 @@ function computePricePHP(volume,infillPercent){
     const materialCost=weight*materialRates[material];
     const printCost=printTime*PRINT_COST_PER_HOUR;
 
-    return materialCost+printCost+BASE_FEE;
+    const successRate = computeSuccessRate(volume, material, infillPercent);
+
+    return (materialCost + printCost + BASE_FEE + BASE_LABOR_FEE) / successRate;
 }
 
 function updatePriceChart(){
@@ -343,7 +353,6 @@ function updatePriceChart(){
 }
 
 /* ------------- FILE HANDLING ------------- */
-
 function handleFile(file){
     if(!file) return;
 
@@ -378,7 +387,6 @@ function handleFile(file){
 }
 
 /* ------------- EVENTS ------------- */
-
 dropZone.addEventListener("dragover",e=>e.preventDefault());
 dropZone.addEventListener("drop",e=>{
     e.preventDefault();
