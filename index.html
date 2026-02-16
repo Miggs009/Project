@@ -84,8 +84,8 @@
           class="w-full p-3 border rounded-lg
                  bg-white dark:bg-gray-700
                  dark:text-white dark:border-gray-600">
-          <option value="USD">USD ($)</option>
           <option value="PHP">PHP (₱)</option>
+          <option value="USD">USD ($)</option>
         </select>
       </div>
 
@@ -123,10 +123,10 @@
 
 <script>
 
-const materialRatesUSD = {
-  pla: 0.00005,
-  abs: 0.00006,
-  resin: 0.00012
+const materialRates = {
+  pla: 3,
+  abs: 3.5,
+  resin: 7
 };
 
 const USD_TO_PHP = 56.00;
@@ -215,12 +215,14 @@ function computePrice(volume) {
   const material = materialSelect.value;
   const currency = currencySelect.value;
 
-  let priceUSD = volume * materialRatesUSD[material];
+  let pricePHP = volume * materialRates[material];
 
-  if (currency === "PHP") {
-    return "₱ " + (priceUSD * USD_TO_PHP).toFixed(2);
+  if (currency === "USD") {
+    const converted = pricePHP / USD_TO_PHP;
+    return "$ " + converted.toFixed(2);
   }
-  return "$ " + priceUSD.toFixed(2);
+  return "₱ " + pricePHP.toFixed(2);
+  
 }
 
 /* File Handling */
