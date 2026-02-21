@@ -193,7 +193,7 @@ function calculateVolume(geometry){
 
 /* ----------- SUCCESS RATE ------------- */
 function computeAdvancedSuccessRate(geometry, material, infillPercent){
-    let success = 0.98;
+    let success = 0.95;
 
     const volume = calculateVolume(geometry);
     if(volume > 500000) success -= 0.05;
