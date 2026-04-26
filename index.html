@@ -130,11 +130,29 @@ if (
 </div>
 
 <script>
+//
+const FILAMENT_PRICE_PER_KG = {
+    pla: 900,
+    abs: 950,
+    petg: 1100,
+    pett: 1200,
+    hips: 1000,
+    tpu: 1500,
+    resin: 1800
+};
+
+const ELECTRICITY_COST_PER_HOUR = 10; // realistic PH rate
+const LABOR_FEE = 50;
+const BASE_FEE = 20;
+
+// Profit multiplier (IMPORTANT)
+const PROFIT_MULTIPLIER = 1.5; // 50% profit
+
+//
 const materialRates = { pla:3, abs:3.5, resin:7, petg:4, pett:4.5, hips:3.8, tpu:6 };
 const USD_TO_PHP = 56.0;
 const PRINT_SPEED_MM3_PER_HOUR = 5000;
 const PRINT_COST_PER_HOUR = 20;
-const BASE_FEE = 10;
 const BASE_LABOR_FEE = 50;
 
 const dropZone = document.getElementById("dropZone");
@@ -229,6 +247,7 @@ function computeAdvancedSuccessRate(geometry, material, infillPercent){
 
 /* ------------- PRICE CALCULATION ------------- */
 function computePrice(volume, geometry = null){
+
     const material = materialSelect.value;
     const currency = currencySelect.value;
     const infill = Math.min(Math.max(Number(infillSlider.value),0),100) / 100;
@@ -238,11 +257,12 @@ function computePrice(volume, geometry = null){
         petg:1.27, pett:1.23, hips:1.03, tpu:1.21
     };
 
+    // ---- VOLUME → WEIGHT ----
     const volume_cm3 = volume / 1000;
     const weight_g = volume_cm3 * materialDensity[material] * infill;
-
     weightSpan.innerText = weight_g.toFixed(2);
 
+    // ---- PRINT TIME ----
     const printTime = (volume * infill) / PRINT_SPEED_MM3_PER_HOUR;
     printTimeSpan.innerText = printTime.toFixed(2);
 
@@ -258,15 +278,28 @@ function computePrice(volume, geometry = null){
 
     successRateSpan.innerText = (successRate * 100).toFixed(1) + "%";
 
-    // ---- BASE COST ----
-    const materialCost = weight_g * materialRates[material];
-    const printCost = printTime * PRINT_COST_PER_HOUR;
-    const baseCost = materialCost + printCost + BASE_FEE + BASE_LABOR_FEE;
+    // =========================
+    // 🔥 REAL COST CALCULATION
+    // =========================
 
-    // ---- RISK CALCULATION ----
+    // 1. Material Cost (REAL FORMULA)
+    const materialCost = (FILAMENT_PRICE_PER_KG[material] / 1000) * weight_g;
+
+    // 2. Machine Cost
+    const machineCost = printTime * ELECTRICITY_COST_PER_HOUR;
+
+    // 3. Base Cost
+    const baseCost = materialCost + machineCost + LABOR_FEE + BASE_FEE;
+
+    // 4. Risk Fee (keep your logic)
     const failureChance = 1 - successRate;
     const riskFee = baseCost * failureChance;
-    const finalTotal = baseCost + riskFee;
+
+    // 5. Subtotal before profit
+    const subtotal = baseCost + riskFee;
+
+    // 6. PROFIT (VERY IMPORTANT)
+    const finalTotal = subtotal * PROFIT_MULTIPLIER;
 
     // ---- DISPLAY RISK ----
     document.getElementById("riskFee").innerText =
